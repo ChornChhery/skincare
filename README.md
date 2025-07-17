@@ -67,7 +67,7 @@ cd ..\services\api-gateway
 ```
 
 ```bash
-go mod init github.com/yourusername/skincare-ecommerce/api-gateway
+go mod init github.com/yourusername/skincare/api-gateway
 ```
 
 ```bash
@@ -97,7 +97,7 @@ cd ..\product-service
 ```
 
 ```bash
-go mod init github.com/yourusername/skincare-ecommerce/product-service
+go mod init github.com/yourusername/skincare/product-service
 ```
 
 ```bash
@@ -119,7 +119,7 @@ cd ..\auth-service
 ```
 
 ```bash
-go mod init github.com/yourusername/skincare-ecommerce/auth-service
+go mod init github.com/yourusername/skincare/auth-service
 ```
 
 ```bash
@@ -141,7 +141,7 @@ cd ..\order-service
 ```
 
 ```bash
-go mod init github.com/yourusername/skincare-ecommerce/order-service
+go mod init github.com/yourusername/skincare/order-service
 ```
 
 ```bash
