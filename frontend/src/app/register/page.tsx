@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -14,10 +15,14 @@ export default function RegisterPage() {
     phone: '',
     skin_type: '',
     language: 'en',
+    date_of_birth: '',
+    gender: '',
+    profile_image_url: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const { login } = useAuth();
 
   const skinTypes = [
     { value: '', label: 'Select your skin type' },
@@ -32,6 +37,13 @@ export default function RegisterPage() {
     { value: 'en', label: 'English' },
     { value: 'th', label: 'ไทย (Thai)' },
     { value: 'km', label: 'ខ្មែរ (Khmer)' },
+  ];
+
+  const genderOptions = [
+    { value: '', label: 'Select your gender' },
+    { value: 'male', label: 'Male' },
+    { value: 'female', label: 'Female' },
+    { value: 'other', label: 'Other' },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,11 +73,8 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Store token in localStorage
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // Redirect to home page
+        // Use the login function from AuthContext
+        login(data.token, data.user);
         router.push('/');
       } else {
         setError(data.error || 'Registration failed');
@@ -209,7 +218,55 @@ export default function RegisterPage() {
                 ))}
               </select>
             </div>
-            
+
+            <div>
+              <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700">
+                Date of Birth
+              </label>
+              <input
+                id="date_of_birth"
+                name="date_of_birth"
+                type="date"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                value={formData.date_of_birth}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="gender" className="block text-sm font-medium text-gray-700">
+                Gender
+              </label>
+              <select
+                id="gender"
+                name="gender"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                value={formData.gender}
+                onChange={handleChange}
+              >
+                {genderOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="profile_image_url" className="block text-sm font-medium text-gray-700">
+                Profile Image URL
+              </label>
+              <input
+                id="profile_image_url"
+                name="profile_image_url"
+                type="url"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="https://example.com/image.jpg"
+                value={formData.profile_image_url}
+                onChange={handleChange}
+              />
+            </div>
+
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password

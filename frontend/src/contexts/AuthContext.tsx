@@ -10,6 +10,9 @@ interface User {
   phone: string;
   skin_type: string;
   language: string;
+  date_of_birth?: string;
+  gender?: string;
+  profile_image_url?: string;
 }
 
 interface AuthContextType {
@@ -25,19 +28,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored auth data on mount
+    // Check localStorage on mount
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-
+    
     if (storedToken && storedUser) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
     }
-    
-    setIsLoading(false);
   }, []);
 
   const login = (newToken: string, newUser: User) => {
@@ -54,20 +54,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('user');
   };
 
-  const value = {
-    user,
-    token,
-    login,
-    logout,
-    isAuthenticated: !!token && !!user,
-  };
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{
+      user,
+      token,
+      login,
+      logout,
+      isAuthenticated: !!token && !!user,
+    }}>
       {children}
     </AuthContext.Provider>
   );

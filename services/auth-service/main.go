@@ -1,11 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -16,26 +20,51 @@ import (
 
 var db *gorm.DB
 
+func init() {
+	// Load .env file
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Warning: .env file not found")
+	}
+}
+
+func getDSN() string {
+	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+		os.Getenv("DB_PORT"),
+		os.Getenv("DB_SSL_MODE"),
+		os.Getenv("DB_TIMEZONE"),
+	)
+}
+
 func main() {
 	// Database connection
 	var err error
-	dsn := "host=localhost user=postgres password=password123 dbname=skincare_users port=5432 sslmode=disable"
-	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err = gorm.Open(postgres.Open(getDSN()), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Auto migrate
-	db.AutoMigrate(&models.User{})
+	// Auto migrate all tables
+	db.AutoMigrate(&models.User{}, &models.PasswordResetToken{})
+
+	// Set Gin mode
+	if os.Getenv("GIN_MODE") == "release" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	r := gin.Default()
 
 	// CORS middleware
+	allowedOrigins := strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",")
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+		AllowOrigins:     allowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
+		MaxAge:           12 * 60 * 60, // 12 hours
 	}))
 
 	// Routes
@@ -46,7 +75,11 @@ func main() {
 		auth.GET("/me", authMiddleware(), getProfile)
 	}
 
-	r.Run(":8081")
+	port := os.Getenv("SERVER_PORT")
+	if port == "" {
+		port = "8081"
+	}
+	r.Run(":" + port)
 }
 
 func register(c *gin.Context) {

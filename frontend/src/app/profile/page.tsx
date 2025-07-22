@@ -40,12 +40,28 @@ export default function ProfilePage() {
     km: 'ខ្មែរ (Khmer)',
   };
 
+  const genderLabels: { [key: string]: string } = {
+    male: 'Male',
+    female: 'Female',
+    other: 'Other',
+  };
+
   return (
     <>
       <Navbar />
       <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white shadow rounded-lg">
+            {user.profile_image_url && (
+              <div className="w-32 h-32 mx-auto -mt-16 relative">
+                <img
+                  src={user.profile_image_url}
+                  alt="Profile"
+                  className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg"
+                />
+              </div>
+            )}
+            
             <div className="px-4 py-5 sm:p-6">
               <h1 className="text-2xl font-bold text-gray-900 mb-6">My Profile</h1>
               
@@ -89,6 +105,20 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700">Preferred Language</label>
                   <div className="mt-1 text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2">
                     {languageLabels[user.language] || user.language}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+                  <div className="mt-1 text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2">
+                    {user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString() : 'Not provided'}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Gender</label>
+                  <div className="mt-1 text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2">
+                    {user.gender ? genderLabels[user.gender] : 'Not specified'}
                   </div>
                 </div>
               </div>
