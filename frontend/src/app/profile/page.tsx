@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 
@@ -14,6 +15,7 @@ export default function ProfilePage() {
       router.push('/login');
     }
   }, [isAuthenticated, router]);
+
 
   if (!isAuthenticated || !user) {
     return (
@@ -124,9 +126,12 @@ export default function ProfilePage() {
               </div>
 
               <div className="mt-6">
-                <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md">
+                <Link
+                  href="/profile/edit"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md inline-block"
+                >
                   Edit Profile
-                </button>
+                </Link>
               </div>
             </div>
           </div>
