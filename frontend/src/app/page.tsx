@@ -5,12 +5,13 @@ import { mockApi } from '@/lib/mockApi';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface Product {
   id: number;
   name_en: string;
   name_th: string;
-  name_km: string;
+  name_kh: string;
   price: number;
   category: string;
   image_url: string;
@@ -24,6 +25,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, isAuthenticated } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -42,8 +44,36 @@ export default function Home() {
 
   const getProductName = (product: Product) => {
     if (user?.language === 'th') return product.name_th;
-    if (user?.language === 'km') return product.name_km;
+    if (user?.language === 'km') return product.name_kh;
     return product.name_en;
+  };
+
+  const handleProductClick = (productId: number) => {
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+    // TODO: Navigate to product detail page
+    router.push(`/products/${productId}`);
+  };
+
+  const handleBuyNow = (productId: number) => {
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+    // TODO: Implement buy now functionality
+    console.log('Buy now:', productId);
+  };
+
+  const handleAddToCart = (e: React.MouseEvent, productId: number) => {
+    e.stopPropagation(); // Prevent triggering the card click
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+    // TODO: Implement add to cart functionality
+    console.log('Add to cart:', productId);
   };
 
   if (loading) {
@@ -86,7 +116,11 @@ export default function Home() {
         {/* Product Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product) => (
-            <div key={product.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+            <div 
+              key={product.id} 
+              className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow cursor-pointer"
+              onClick={() => !isAuthenticated && router.push('/login')}
+            >
               {/* Product Image */}
               <div className="aspect-square overflow-hidden">
                 <img
@@ -102,23 +136,10 @@ export default function Home() {
                   {getProductName(product)}
                 </h2>
                 
-                {/* Language Variants */}
-                {!isAuthenticated || user?.language === 'en' ? (
-                  <>
-                    <p className="text-gray-600 mb-1">🇹🇭 {product.name_th}</p>
-                    <p className="text-gray-600 mb-4">🇰🇭 {product.name_km}</p>
-                  </>
-                ) : user?.language === 'th' ? (
-                  <>
-                    <p className="text-gray-600 mb-1">🇺🇸 {product.name_en}</p>
-                    <p className="text-gray-600 mb-4">🇰🇭 {product.name_km}</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-gray-600 mb-1">🇺🇸 {product.name_en}</p>
-                    <p className="text-gray-600 mb-4">🇹🇭 {product.name_th}</p>
-                  </>
-                )}
+                {/* Description */}
+                <p className="text-gray-600 mb-4 line-clamp-2">
+                  {product.description_en}
+                </p>
                 
                 {/* Price and Category */}
                 <div className="flex justify-between items-center mb-4">
@@ -129,17 +150,21 @@ export default function Home() {
                     {product.category}
                   </span>
                 </div>
-                
-                {/* Add to Cart Button */}
-                {isAuthenticated ? (
-                  <button className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-                    Add to Cart
-                  </button>
-                ) : (
-                  <div className="text-center">
-                    <p className="text-gray-500 mb-2">Please login to purchase</p>
-                    <button className="w-full bg-gray-400 text-white py-2 px-4 rounded-lg cursor-not-allowed">
-                      Login Required
+
+                {/* Action Buttons - Only show for authenticated users */}
+                {isAuthenticated && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleBuyNow(product.id)}
+                      className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      Buy Now
+                    </button>
+                    <button
+                      onClick={(e) => handleAddToCart(e, product.id)}
+                      className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Add to Cart
                     </button>
                   </div>
                 )}

@@ -7,7 +7,7 @@ export const mockProducts = [
     price: 25.99,
     category: "cleanser",
     image_url: "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=300&h=300",
-    description_en: "A gentle cleanser for all skin types"
+    description_en: "A gentle cleanser suitable for all skin types. This pH-balanced formula effectively removes impurities while maintaining skin's natural moisture barrier."
   },
   {
     id: 2,
