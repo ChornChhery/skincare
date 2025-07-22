@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { mockApi } from '@/lib/mockApi';
+import { HomeIcon } from '@heroicons/react/24/outline';
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -21,25 +23,11 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:8081/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Use the login function from AuthContext
-        login(data.token, data.user);
-        router.push('/');
-      } else {
-        setError(data.error || 'Login failed');
-      }
+      const { token, user } = await mockApi.login(formData.email, formData.password);
+      login(token, user);
+      router.push('/');
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError('Invalid credentials. Try demo@example.com / password123');
     } finally {
       setLoading(false);
     }
@@ -54,6 +42,15 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      {/* Add Back to Home button */}
+      <Link
+        href="/"
+        className="absolute top-4 left-4 flex items-center gap-2 text-gray-600 hover:text-gray-900"
+      >
+        <HomeIcon className="w-5 h-5" />
+        <span>Back to Home</span>
+      </Link>
+
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
@@ -65,6 +62,9 @@ export default function LoginPage() {
               create a new account
             </Link>
           </p>
+          <div className="mt-2 text-center text-sm text-gray-600">
+            Demo credentials: demo@example.com / password123
+          </div>
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
