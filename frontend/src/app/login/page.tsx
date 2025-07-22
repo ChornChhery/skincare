@@ -27,7 +27,7 @@ export default function LoginPage() {
       login(token, user);
       router.push('/');
     } catch (err) {
-      setError('Invalid credentials. Try demo@example.com / password123');
+      setError('Invalid credentials.');
     } finally {
       setLoading(false);
     }
@@ -62,9 +62,7 @@ export default function LoginPage() {
               create a new account
             </Link>
           </p>
-          <div className="mt-2 text-center text-sm text-gray-600">
-            Demo credentials: demo@example.com / password123
-          </div>
+          <div className="mt-2 text-center text-sm text-gray-600">          </div>
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
