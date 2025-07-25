@@ -15,7 +15,7 @@ export const mockProducts = [
     price: 35.99,
     category: "moisturizer",
     image_url: "https://images.unsplash.com/photo-1580870069867-74c57ee1bb07?auto=format&fit=crop&w=300&h=300",
-    description_en: "Deep hydration for dry skin"
+    description_en: "Lightweight moisturizer that provides deep hydration without clogging pores. Enriched with hyaluronic acid and vitamin E for a radiant complexion."
   },
   {
     id: 3,
@@ -23,7 +23,7 @@ export const mockProducts = [
     price: 45.99,
     category: "serum",
     image_url: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=300&h=300",
-    description_en: "Brightening and antioxidant protection"
+    description_en: "Brightening serum with 20% vitamin C to reduce dark spots and improve skin tone. Contains antioxidants to protect against environmental damage."
   },
   {
     id:4,
@@ -224,7 +224,7 @@ export const mockApi = {
     await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
     
     // Simulate successful login
-    if (email === "demo@example.com" && password === "password123") {
+    if (email === "demo@example.com" && password === "demo12") {
       return {
         token: "mock-jwt-token",
         user: {

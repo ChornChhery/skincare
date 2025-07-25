@@ -209,7 +209,7 @@ export default function LoginPage() {
           <h4 className="text-sm font-semibold text-blue-800 mb-2">Demo Credentials:</h4>
           <div className="text-xs text-blue-700 space-y-1">
             <p><strong>Email:</strong> demo@example.com</p>
-            <p><strong>Password:</strong> password123</p>
+            <p><strong>Password:</strong> demo12</p>
           </div>
         </div>
       </div>
