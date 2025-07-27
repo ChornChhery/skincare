@@ -20,20 +20,72 @@ interface Product {
   description_km?: string;
 }
 
+interface Category {
+  name: string;
+  icon: string;
+  count: number;
+  color: string;
+}
+
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
   const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [categories, setCategories] = useState<Category[]>([]);
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
+
+  // Category configurations with icons and colors
+  const categoryConfig: Record<string, { icon: string; color: string }> = {
+    'all': { icon: '🌟', color: 'from-slate-500 to-slate-600' },
+    'cleanser': { icon: '🧼', color: 'from-blue-500 to-cyan-500' },
+    'moisturizer': { icon: '💧', color: 'from-blue-400 to-teal-500' },
+    'serum': { icon: '✨', color: 'from-purple-500 to-pink-500' },
+    'sunscreen': { icon: '☀️', color: 'from-yellow-500 to-orange-500' },
+    'toner': { icon: '🌿', color: 'from-green-500 to-emerald-500' },
+    'mask': { icon: '🎭', color: 'from-indigo-500 to-purple-500' },
+    'exfoliator': { icon: '🔄', color: 'from-red-500 to-pink-500' },
+    'essence': { icon: '💎', color: 'from-cyan-500 to-blue-500' },
+    'eye cream': { icon: '👁️', color: 'from-rose-500 to-pink-500' },
+    'oil': { icon: '🫒', color: 'from-amber-500 to-yellow-500' },
+    'treatment': { icon: '🧴', color: 'from-violet-500 to-purple-500' }
+  };
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const response = await mockApi.getProducts();
-        setProducts(response.data);
+        const productsData = response.data;
+        setProducts(productsData);
+        setFilteredProducts(productsData);
+        
+        // Generate categories from products
+        const categoryMap = new Map<string, number>();
+        productsData.forEach((product: Product) => {
+          const category = product.category.toLowerCase();
+          categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
+        });
+
+        const categoriesData: Category[] = [
+          {
+            name: 'all',
+            icon: categoryConfig['all'].icon,
+            count: productsData.length,
+            color: categoryConfig['all'].color
+          },
+          ...Array.from(categoryMap.entries()).map(([name, count]) => ({
+            name,
+            icon: categoryConfig[name]?.icon || '🧴',
+            count,
+            color: categoryConfig[name]?.color || 'from-gray-500 to-gray-600'
+          }))
+        ];
+
+        setCategories(categoriesData);
       } catch (error) {
         setError('Failed to load products');
       } finally {
@@ -44,10 +96,25 @@ export default function Home() {
     fetchProducts();
   }, []);
 
+  // Filter products when category changes
+  useEffect(() => {
+    if (selectedCategory === 'all') {
+      setFilteredProducts(products);
+    } else {
+      setFilteredProducts(products.filter(product => 
+        product.category.toLowerCase() === selectedCategory
+      ));
+    }
+  }, [selectedCategory, products]);
+
   const getProductName = (product: Product) => {
     if (user?.language === 'th') return product.name_th;
     if (user?.language === 'km') return product.name_kh;
     return product.name_en;
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
   };
 
   const handleProductClick = (productId: number) => {
@@ -73,6 +140,8 @@ export default function Home() {
       return;
     }
     console.log('Add to cart:', productId);
+    // TODO: Integrate with cart system
+    // router.push('/cart');
   };
 
   const toggleFavorite = (e: React.MouseEvent, productId: number) => {
@@ -168,10 +237,90 @@ export default function Home() {
             Discover premium skincare solutions crafted for your unique beauty journey
           </p>
         </div>
+
+        {/* Category Filter Section */}
+        <div className="mb-12">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-slate-700 to-blue-600 bg-clip-text text-transparent mb-4">
+              Shop by Category
+            </h2>
+            <p className="text-slate-600">
+              Find the perfect products for your skincare routine
+            </p>
+          </div>
+
+          {/* Category Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4 mb-8">
+            {categories.map((category, index) => (
+              <button
+                key={category.name}
+                onClick={() => handleCategoryChange(category.name)}
+                className={`group relative bg-white/70 backdrop-blur-sm rounded-2xl border-2 p-4 transition-all duration-300 hover:scale-105 hover:shadow-lg ${
+                  selectedCategory === category.name
+                    ? 'border-blue-400 bg-gradient-to-br from-blue-50 to-purple-50 shadow-lg shadow-blue-200/50'
+                    : 'border-white/60 hover:border-blue-200'
+                }`}
+                style={{
+                  animation: `fadeInUp 0.5s ease-out ${index * 0.1}s both`
+                }}
+              >
+                {/* Selected indicator */}
+                {selectedCategory === category.name && (
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+
+                <div className="text-center">
+                  <div className="text-3xl mb-2 group-hover:scale-110 transition-transform duration-300">
+                    {category.icon}
+                  </div>
+                  <div className={`text-sm font-bold capitalize mb-1 ${
+                    selectedCategory === category.name
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent'
+                      : 'text-slate-700 group-hover:text-blue-600'
+                  }`}>
+                    {category.name}
+                  </div>
+                  <div className="text-xs text-slate-500 font-medium">
+                    {category.count} {category.count === 1 ? 'item' : 'items'}
+                  </div>
+                </div>
+
+                {/* Hover gradient background */}
+                <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${category.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+              </button>
+            ))}
+          </div>
+
+          {/* Active Filter Display */}
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <div className="flex items-center space-x-2 px-4 py-2 bg-white/70 backdrop-blur-sm rounded-full border border-blue-200/50">
+              <span className="text-sm text-slate-600">Showing:</span>
+              <span className="font-semibold text-blue-600 capitalize">
+                {selectedCategory === 'all' ? 'All Products' : selectedCategory}
+              </span>
+              <span className="text-sm text-slate-500">
+                ({filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'})
+              </span>
+            </div>
+            
+            {selectedCategory !== 'all' && (
+              <button
+                onClick={() => handleCategoryChange('all')}
+                className="text-sm text-slate-600 hover:text-blue-600 font-medium underline underline-offset-4 transition-colors duration-200"
+              >
+                Clear Filter
+              </button>
+            )}
+          </div>
+        </div>
         
         {/* Product Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {products.map((product, index) => (
+          {filteredProducts.map((product, index) => (
             <div 
               key={product.id} 
               className="group relative bg-white/70 backdrop-blur-sm rounded-3xl overflow-hidden border border-white/60 hover:border-blue-200/80 shadow-lg hover:shadow-2xl hover:shadow-blue-100/50 transition-all duration-500 hover:scale-[1.02] cursor-pointer"
@@ -195,8 +344,11 @@ export default function Home() {
                 
                 {/* Category badge */}
                 <div className="absolute top-4 left-4">
-                  <span className="px-3 py-1 text-xs font-bold bg-gradient-to-r from-blue-500/90 to-purple-600/90 text-white rounded-full backdrop-blur-sm capitalize shadow-lg">
-                    {product.category}
+                  <span className={`inline-flex items-center space-x-1 px-3 py-1 text-xs font-bold bg-gradient-to-r ${
+                    categoryConfig[product.category.toLowerCase()]?.color || 'from-gray-500 to-gray-600'
+                  } text-white rounded-full backdrop-blur-sm capitalize shadow-lg`}>
+                    <span>{categoryConfig[product.category.toLowerCase()]?.icon || '🧴'}</span>
+                    <span>{product.category}</span>
                   </span>
                 </div>
 
@@ -228,7 +380,7 @@ export default function Home() {
                   {product.description_en}
                 </p>
                 
-                {/* Price and Category */}
+                {/* Price and Rating */}
                 <div className="flex justify-between items-center mb-6">
                   <span className="text-3xl font-bold bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent">
                     ${product.price.toFixed(2)}
@@ -274,7 +426,27 @@ export default function Home() {
           ))}
         </div>
 
-        {products.length === 0 && (
+        {/* No Products Found */}
+        {filteredProducts.length === 0 && products.length > 0 && (
+          <div className="text-center py-20">
+            <div className="text-8xl mb-6">🔍</div>
+            <h3 className="text-3xl font-bold text-slate-600 mb-4">
+              No products found in "{selectedCategory}"
+            </h3>
+            <p className="text-slate-500 text-lg mb-8">
+              Try browsing other categories or check back soon!
+            </p>
+            <button
+              onClick={() => handleCategoryChange('all')}
+              className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300 hover:scale-105"
+            >
+              View All Products
+            </button>
+          </div>
+        )}
+
+        {/* All Products Empty State */}
+        {products.length === 0 && !loading && (
           <div className="text-center py-20">
             <div className="text-8xl mb-6 animate-bounce">🧴</div>
             <h3 className="text-3xl font-bold text-slate-600 mb-4">No products available</h3>
