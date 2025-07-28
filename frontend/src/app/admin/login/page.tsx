@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { mockApi } from '@/lib/mockApi';
+import { mockAdminApi } from '@/lib/mockApi';
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
