@@ -280,3 +280,192 @@ export default function CustomersPage() {
                 </th>
               </tr>
             </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredCustomers.map((customer) => (
+                <tr key={customer.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-4">
+                    <input
+                      type="checkbox"
+                      checked={selectedCustomers.includes(customer.id)}
+                      onChange={() => handleSelectCustomer(customer.id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 h-10 w-10">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+                          <User className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {customer.firstName} {customer.lastName}
+                        </div>
+                        <div className="text-sm text-gray-500 flex items-center">
+                          <Calendar className="w-3 h-3 mr-1" />
+                          Joined {new Date(customer.joinDate).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="text-sm text-gray-900 flex items-center mb-1">
+                      <Mail className="w-3 h-3 mr-2" />
+                      {customer.email}
+                    </div>
+                    <div className="text-sm text-gray-500 flex items-center">
+                      <Phone className="w-3 h-3 mr-2" />
+                      {customer.phone}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getSkinTypeColor(customer.skinType)}`}>
+                      {customer.skinType}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center">
+                      <ShoppingBag className="w-4 h-4 text-gray-400 mr-2" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {customer.totalOrders} orders
+                        </div>
+                        {customer.lastOrder && (
+                          <div className="text-xs text-gray-500">
+                            Last: {new Date(customer.lastOrder).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="text-sm font-medium text-gray-900">
+                      ฿{customer.totalSpent.toFixed(2)}
+                    </div>
+                    {customer.totalOrders > 0 && (
+                      <div className="text-xs text-gray-500">
+                        Avg: ฿{(customer.totalSpent / customer.totalOrders).toFixed(2)}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-4">
+                    {customer.averageRating > 0 ? (
+                      renderStars(customer.averageRating)
+                    ) : (
+                      <span className="text-sm text-gray-400">No reviews</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-4">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(customer.status)}`}>
+                      {customer.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => console.log('View customer', customer.id)}
+                        className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => console.log('Email customer', customer.email)}
+                        className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                        title="Send Email"
+                      >
+                        <Mail className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => console.log('View address', customer.address)}
+                        className="text-purple-600 hover:text-purple-900 p-1 rounded hover:bg-purple-50"
+                        title="View Address"
+                      >
+                        <MapPin className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Empty State */}
+        {filteredCustomers.length === 0 && (
+          <div className="text-center py-12">
+            <User className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No customers found</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {searchTerm || skinTypeFilter !== 'all' 
+                ? 'Try adjusting your search or filter criteria.'
+                : 'Get started by adding your first customer.'}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Customer Statistics */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <User className="h-8 w-8 text-blue-600" />
+            </div>
+            <div className="ml-4">
+              <div className="text-sm font-medium text-gray-500">Total Customers</div>
+              <div className="text-2xl font-bold text-gray-900">{mockCustomers.length}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
+                <div className="h-4 w-4 bg-green-600 rounded-full"></div>
+              </div>
+            </div>
+            <div className="ml-4">
+              <div className="text-sm font-medium text-gray-500">Active Customers</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {mockCustomers.filter(c => c.status === 'active').length}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="h-8 w-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                <Star className="h-4 w-4 text-yellow-600" />
+              </div>
+            </div>
+            <div className="ml-4">
+              <div className="text-sm font-medium text-gray-500">VIP Customers</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {mockCustomers.filter(c => c.status === 'vip').length}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <ShoppingBag className="h-8 w-8 text-purple-600" />
+            </div>
+            <div className="ml-4">
+              <div className="text-sm font-medium text-gray-500">Avg Orders</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {(mockCustomers.reduce((sum, c) => sum + c.totalOrders, 0) / mockCustomers.length).toFixed(1)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
