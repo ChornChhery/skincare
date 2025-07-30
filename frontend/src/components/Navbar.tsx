@@ -2,17 +2,148 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 
 export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [adminUser, setAdminUser] = useState<any>(null);
+  const router = useRouter();
+  const pathname = usePathname();
 
-  const handleLogout = () => {
+  // Check if we're on admin pages
+  const isAdminPage = pathname?.startsWith('/admin');
+
+  useEffect(() => {
+    // Check admin authentication status
+    const adminToken = localStorage.getItem('adminToken');
+    const adminData = localStorage.getItem('adminUser');
+    
+    if (adminToken && adminData) {
+      try {
+        setAdminUser(JSON.parse(adminData));
+        setIsAdminLoggedIn(true);
+      } catch (error) {
+        setIsAdminLoggedIn(false);
+        setAdminUser(null);
+      }
+    } else {
+      setIsAdminLoggedIn(false);
+      setAdminUser(null);
+    }
+  }, [pathname]);
+
+  const handleUserLogout = () => {
     logout();
     setIsProfileOpen(false);
   };
 
+  const handleAdminLogout = () => {
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
+    setIsAdminLoggedIn(false);
+    setAdminUser(null);
+    router.push('/admin/login');
+  };
+
+  // Don't show navbar on admin login page
+  if (pathname === '/admin/login') {
+    return null;
+  }
+
+  // Show admin navbar on admin pages
+  if (isAdminPage) {
+    return (
+      <nav className="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/90 border-b border-slate-700/50 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            {/* Admin Logo */}
+            <div className="flex items-center">
+              <Link href="/admin" className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                  <span className="text-xl">🧴</span>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-white">Admin Panel</div>
+                  <div className="text-xs text-slate-300">Management Dashboard</div>
+                </div>
+              </Link>
+            </div>
+
+            {/* Admin Actions */}
+            <div className="flex items-center space-x-4">
+              {isAdminLoggedIn && adminUser ? (
+                <>
+                  {/* View Main Site */}
+                  <Link
+                    href="/"
+                    target="_blank"
+                    className="flex items-center space-x-2 px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    <span className="text-sm">View Site</span>
+                  </Link>
+
+                  {/* Admin Profile */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsProfileOpen(!isProfileOpen)}
+                      className="flex items-center space-x-3 px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors"
+                    >
+                      <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                        {adminUser.name?.charAt(0)?.toUpperCase() || 'A'}
+                      </div>
+                      <div className="text-left hidden sm:block">
+                        <div className="text-sm font-medium text-white">{adminUser.name}</div>
+                        <div className="text-xs text-slate-300">{adminUser.role}</div>
+                      </div>
+                      <svg className={`w-4 h-4 text-slate-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {/* Admin Dropdown */}
+                    {isProfileOpen && (
+                      <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
+                        <div className="p-3 border-b border-slate-700">
+                          <div className="text-sm font-medium text-white">{adminUser.name}</div>
+                          <div className="text-xs text-slate-400">{adminUser.email}</div>
+                        </div>
+                        <div className="py-1">
+                          <Link href="/admin/settings" className="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">
+                            Settings
+                          </Link>
+                          <button
+                            onClick={handleAdminLogout}
+                            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-slate-700"
+                          >
+                            Logout
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <Link
+                  href="/admin/login"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Admin Login
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+
+  // Regular user navbar for main site
   return (
     <nav className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b border-white/20 shadow-lg shadow-blue-100/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -40,6 +171,17 @@ export default function Navbar() {
 
           {/* Navigation Items */}
           <div className="flex items-center space-x-6">
+            {/* Admin Login Link for Users */}
+            <Link
+              href="/admin/login"
+              className="hidden sm:flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-blue-600 text-sm font-medium transition-colors duration-200"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span>Admin</span>
+            </Link>
+
             {isAuthenticated ? (
               <>
                 {/* User Info & Profile Dropdown */}
@@ -131,7 +273,7 @@ export default function Navbar() {
                         
                         <div className="border-t border-slate-200/50 mt-2 pt-2">
                           <button
-                            onClick={handleLogout}
+                            onClick={handleUserLogout}
                             className="flex items-center space-x-3 px-4 py-3 w-full text-left text-red-600 hover:bg-red-50/70 transition-colors duration-200"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
