@@ -23,6 +23,12 @@ export default function AdminLayout({
   const pathname = usePathname();
 
   useEffect(() => {
+    // Don't check auth on login page
+    if (pathname === '/admin/login') {
+      setLoading(false);
+      return;
+    }
+
     // Check admin authentication
     const adminToken = localStorage.getItem('adminToken');
     const adminData = localStorage.getItem('adminUser');
@@ -40,13 +46,18 @@ export default function AdminLayout({
     }
     
     setLoading(false);
-  }, [router]);
+  }, [router, pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminUser');
     router.push('/admin/login');
   };
+
+  // Don't show layout on login page
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
+  }
 
   const navigation = [
     {
