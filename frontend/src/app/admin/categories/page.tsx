@@ -172,6 +172,18 @@ export default function CategoriesPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-lg border border-slate-200 p-6">
           <div className="flex items-center">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">📂</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-slate-600">Total Categories</p>
+              <p className="text-2xl font-bold text-slate-900">{categories.length}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-slate-200 p-6">
+          <div className="flex items-center">
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <span className="text-2xl">✅</span>
             </div>
