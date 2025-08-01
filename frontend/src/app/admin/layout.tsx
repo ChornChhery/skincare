@@ -91,6 +91,12 @@ export default function AdminLayout({
       current: pathname.startsWith('/admin/reviews')
     },
     {
+      name: 'Sales Analytics',
+      href: '/admin/sales',
+      icon: '🎯',
+      current: pathname.startsWith('/admin/sales')
+    },
+    {
       name: 'Inventory',
       href: '/admin/inventory',
       icon: '📋',
