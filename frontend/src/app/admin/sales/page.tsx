@@ -17,7 +17,8 @@ import {
   Target,
   Award,
   Zap,
-  RefreshCw
+  RefreshCw,
+  Clock
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 

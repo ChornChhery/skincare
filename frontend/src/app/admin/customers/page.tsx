@@ -1,91 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Filter, Eye, Mail, Phone, MapPin, Calendar, User, ShoppingBag, Star } from 'lucide-react';
+import { mockAdminApi } from '@/lib/mockApi'; // Import the mock API
 
 export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [skinTypeFilter, setSkinTypeFilter] = useState('all');
   const [selectedCustomers, setSelectedCustomers] = useState<number[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  });
 
-  // Mock customers data
-  const mockCustomers = [
-    {
-      id: 1,
-      firstName: 'Sarah',
-      lastName: 'Johnson',
-      email: 'sarah@example.com',
-      phone: '+66 2 123 4567',
-      skinType: 'combination',
-      joinDate: '2023-12-15',
-      totalOrders: 8,
-      totalSpent: 456.78,
-      lastOrder: '2024-01-25',
-      address: '123 Main St, Bangkok, Thailand',
-      status: 'active',
-      averageRating: 4.5
-    },
-    {
-      id: 2,
-      firstName: 'Mike',
-      lastName: 'Chen',
-      email: 'mike@example.com',
-      phone: '+66 2 234 5678',
-      skinType: 'oily',
-      joinDate: '2023-11-20',
-      totalOrders: 12,
-      totalSpent: 678.90,
-      lastOrder: '2024-01-27',
-      address: '456 Oak Ave, Chiang Mai, Thailand',
-      status: 'active',
-      averageRating: 4.8
-    },
-    {
-      id: 3,
-      firstName: 'Emma',
-      lastName: 'Wilson',
-      email: 'emma@example.com',
-      phone: '+66 2 345 6789',
-      skinType: 'sensitive',
-      joinDate: '2024-01-10',
-      totalOrders: 3,
-      totalSpent: 234.56,
-      lastOrder: '2024-01-26',
-      address: '789 Pine Rd, Phuket, Thailand',
-      status: 'active',
-      averageRating: 4.2
-    },
-    {
-      id: 4,
-      firstName: 'David',
-      lastName: 'Kim',
-      email: 'david@example.com',
-      phone: '+66 2 456 7890',
-      skinType: 'dry',
-      joinDate: '2023-10-05',
-      totalOrders: 15,
-      totalSpent: 890.45,
-      lastOrder: '2024-01-20',
-      address: '321 Elm St, Pattaya, Thailand',
-      status: 'vip',
-      averageRating: 4.9
-    },
-    {
-      id: 5,
-      firstName: 'Lisa',
-      lastName: 'Brown',
-      email: 'lisa@example.com',
-      phone: '+66 2 567 8901',
-      skinType: 'normal',
-      joinDate: '2023-09-18',
-      totalOrders: 0,
-      totalSpent: 0,
-      lastOrder: null,
-      address: '654 Maple Dr, Hat Yai, Thailand',
-      status: 'inactive',
-      averageRating: 0
+  // Fetch customers from mock API
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true);
+      const response = await mockAdminApi.getAdminCustomers(
+        pagination.page,
+        pagination.limit,
+        searchTerm
+      );
+      setCustomers(response.data);
+      setPagination(response.pagination);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Fetch customers on component mount and when search/pagination changes
+  useEffect(() => {
+    fetchCustomers();
+  }, [pagination.page, searchTerm]);
 
   const getSkinTypeColor = (skinType: string) => {
     switch (skinType) {
@@ -117,14 +70,10 @@ export default function CustomersPage() {
     }
   };
 
-  const filteredCustomers = mockCustomers.filter(customer => {
-    const matchesSearch = 
-      customer.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSkinType = skinTypeFilter === 'all' || customer.skinType === skinTypeFilter;
-    
-    return matchesSearch && matchesSkinType;
+  // Filter customers by skin type (client-side filtering for skin type)
+  const filteredCustomers = customers.filter(customer => {
+    const matchesSkinType = skinTypeFilter === 'all' || customer.skin_type === skinTypeFilter;
+    return matchesSkinType;
   });
 
   const handleSelectCustomer = (customerId: number) => {
@@ -159,6 +108,22 @@ export default function CustomersPage() {
     );
   };
 
+  // Handle search with debouncing
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -169,7 +134,7 @@ export default function CustomersPage() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">
-            {filteredCustomers.length} customers
+            {pagination.total} customers
           </span>
         </div>
       </div>
@@ -184,7 +149,7 @@ export default function CustomersPage() {
                 type="text"
                 placeholder="Search customers by name or email..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -300,11 +265,11 @@ export default function CustomersPage() {
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {customer.firstName} {customer.lastName}
+                          {customer.first_name} {customer.last_name}
                         </div>
                         <div className="text-sm text-gray-500 flex items-center">
                           <Calendar className="w-3 h-3 mr-1" />
-                          Joined {new Date(customer.joinDate).toLocaleDateString()}
+                          Joined {new Date(customer.created_at).toLocaleDateString()}
                         </div>
                       </div>
                     </div>
@@ -314,14 +279,10 @@ export default function CustomersPage() {
                       <Mail className="w-3 h-3 mr-2" />
                       {customer.email}
                     </div>
-                    <div className="text-sm text-gray-500 flex items-center">
-                      <Phone className="w-3 h-3 mr-2" />
-                      {customer.phone}
-                    </div>
                   </td>
                   <td className="px-4 py-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getSkinTypeColor(customer.skinType)}`}>
-                      {customer.skinType}
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getSkinTypeColor(customer.skin_type)}`}>
+                      {customer.skin_type}
                     </span>
                   </td>
                   <td className="px-4 py-4">
@@ -329,29 +290,24 @@ export default function CustomersPage() {
                       <ShoppingBag className="w-4 h-4 text-gray-400 mr-2" />
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {customer.totalOrders} orders
+                          {customer.total_orders} orders
                         </div>
-                        {customer.lastOrder && (
-                          <div className="text-xs text-gray-500">
-                            Last: {new Date(customer.lastOrder).toLocaleDateString()}
-                          </div>
-                        )}
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-4">
                     <div className="text-sm font-medium text-gray-900">
-                      ฿{customer.totalSpent.toFixed(2)}
+                      ฿{customer.total_spent.toFixed(2)}
                     </div>
-                    {customer.totalOrders > 0 && (
+                    {customer.total_orders > 0 && (
                       <div className="text-xs text-gray-500">
-                        Avg: ฿{(customer.totalSpent / customer.totalOrders).toFixed(2)}
+                        Avg: ฿{(customer.total_spent / customer.total_orders).toFixed(2)}
                       </div>
                     )}
                   </td>
                   <td className="px-4 py-4">
-                    {customer.averageRating > 0 ? (
-                      renderStars(customer.averageRating)
+                    {customer.avg_rating > 0 ? (
+                      renderStars(customer.avg_rating)
                     ) : (
                       <span className="text-sm text-gray-400">No reviews</span>
                     )}
@@ -377,13 +333,6 @@ export default function CustomersPage() {
                       >
                         <Mail className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => console.log('View address', customer.address)}
-                        className="text-purple-600 hover:text-purple-900 p-1 rounded hover:bg-purple-50"
-                        title="View Address"
-                      >
-                        <MapPin className="w-4 h-4" />
-                      </button>
                     </div>
                   </td>
                 </tr>
@@ -406,6 +355,34 @@ export default function CustomersPage() {
         )}
       </div>
 
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+              disabled={pagination.page === 1}
+              className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="px-3 py-1 text-sm">
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <button
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+              disabled={pagination.page === pagination.totalPages}
+              className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Customer Statistics */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -415,7 +392,7 @@ export default function CustomersPage() {
             </div>
             <div className="ml-4">
               <div className="text-sm font-medium text-gray-500">Total Customers</div>
-              <div className="text-2xl font-bold text-gray-900">{mockCustomers.length}</div>
+              <div className="text-2xl font-bold text-gray-900">{pagination.total}</div>
             </div>
           </div>
         </div>
@@ -430,7 +407,7 @@ export default function CustomersPage() {
             <div className="ml-4">
               <div className="text-sm font-medium text-gray-500">Active Customers</div>
               <div className="text-2xl font-bold text-gray-900">
-                {mockCustomers.filter(c => c.status === 'active').length}
+                {customers.filter(c => c.status === 'active').length}
               </div>
             </div>
           </div>
@@ -446,7 +423,7 @@ export default function CustomersPage() {
             <div className="ml-4">
               <div className="text-sm font-medium text-gray-500">VIP Customers</div>
               <div className="text-2xl font-bold text-gray-900">
-                {mockCustomers.filter(c => c.status === 'vip').length}
+                {customers.filter(c => c.status === 'vip').length}
               </div>
             </div>
           </div>
@@ -460,7 +437,10 @@ export default function CustomersPage() {
             <div className="ml-4">
               <div className="text-sm font-medium text-gray-500">Avg Orders</div>
               <div className="text-2xl font-bold text-gray-900">
-                {(mockCustomers.reduce((sum, c) => sum + c.totalOrders, 0) / mockCustomers.length).toFixed(1)}
+                {customers.length > 0 
+                  ? (customers.reduce((sum, c) => sum + c.total_orders, 0) / customers.length).toFixed(1)
+                  : '0'
+                }
               </div>
             </div>
           </div>
