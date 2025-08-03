@@ -297,11 +297,11 @@ export default function CustomersPage() {
                   </td>
                   <td className="px-4 py-4">
                     <div className="text-sm font-medium text-gray-900">
-                      ฿{customer.total_spent.toFixed(2)}
+                      ${customer.total_spent.toFixed(2)}
                     </div>
                     {customer.total_orders > 0 && (
                       <div className="text-xs text-gray-500">
-                        Avg: ฿{(customer.total_spent / customer.total_orders).toFixed(2)}
+                        Avg: ${(customer.total_spent / customer.total_orders).toFixed(2)}
                       </div>
                     )}
                   </td>

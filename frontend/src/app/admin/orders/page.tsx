@@ -1,76 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Filter, Eye, Truck, Package, CheckCircle, AlertCircle, Clock, MoreHorizontal } from 'lucide-react';
+import { mockAdminApi } from '@/lib/mockApi'; // Import the mock API
 
 export default function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrders, setSelectedOrders] = useState<number[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  });
 
-  // Mock orders data
-  const mockOrders = [
-    {
-      id: 1001,
-      orderNumber: 'ORD-001001',
-      customerName: 'Sarah Johnson',
-      customerEmail: 'sarah@example.com',
-      date: '2024-01-28',
-      status: 'pending',
-      total: 125.97,
-      items: 3,
-      shippingAddress: '123 Main St, Bangkok, Thailand',
-      paymentMethod: 'Credit Card'
-    },
-    {
-      id: 1002,
-      orderNumber: 'ORD-001002',
-      customerName: 'Mike Chen',
-      customerEmail: 'mike@example.com',
-      date: '2024-01-27',
-      status: 'processing',
-      total: 89.99,
-      items: 2,
-      shippingAddress: '456 Oak Ave, Chiang Mai, Thailand',
-      paymentMethod: 'PayPal'
-    },
-    {
-      id: 1003,
-      orderNumber: 'ORD-001003',
-      customerName: 'Emma Wilson',
-      customerEmail: 'emma@example.com',
-      date: '2024-01-27',
-      status: 'shipped',
-      total: 156.48,
-      items: 4,
-      shippingAddress: '789 Pine Rd, Phuket, Thailand',
-      paymentMethod: 'Credit Card'
-    },
-    {
-      id: 1004,
-      orderNumber: 'ORD-001004',
-      customerName: 'David Kim',
-      customerEmail: 'david@example.com',
-      date: '2024-01-26',
-      status: 'delivered',
-      total: 67.99,
-      items: 2,
-      shippingAddress: '321 Elm St, Pattaya, Thailand',
-      paymentMethod: 'Bank Transfer'
-    },
-    {
-      id: 1005,
-      orderNumber: 'ORD-001005',
-      customerName: 'Lisa Brown',
-      customerEmail: 'lisa@example.com',
-      date: '2024-01-26',
-      status: 'cancelled',
-      total: 198.50,
-      items: 5,
-      shippingAddress: '654 Maple Dr, Hat Yai, Thailand',
-      paymentMethod: 'Credit Card'
+  // Fetch orders from mock API
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const response = await mockAdminApi.getAdminOrders(
+        pagination.page,
+        pagination.limit,
+        statusFilter === 'all' ? '' : statusFilter
+      );
+      setOrders(response.data);
+      setPagination(response.pagination);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Fetch orders on component mount and when filters change
+  useEffect(() => {
+    fetchOrders();
+  }, [pagination.page, statusFilter]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -106,13 +74,16 @@ export default function OrdersPage() {
     }
   };
 
-  const filteredOrders = mockOrders.filter(order => {
-    const matchesSearch = order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customerEmail.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+  // Client-side search filtering (since API doesn't handle search)
+  const filteredOrders = orders.filter(order => {
+    if (!searchTerm) return true;
     
-    return matchesSearch && matchesStatus;
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      order.id.toString().includes(searchLower) ||
+      order.customer_name.toLowerCase().includes(searchLower) ||
+      order.customer_email.toLowerCase().includes(searchLower)
+    );
   });
 
   const handleSelectOrder = (orderId: number) => {
@@ -131,10 +102,38 @@ export default function OrdersPage() {
     );
   };
 
-  const handleBulkStatusUpdate = (newStatus: string) => {
-    console.log('Updating orders', selectedOrders, 'to status', newStatus);
-    setSelectedOrders([]);
+  const handleBulkStatusUpdate = async (newStatus: string) => {
+    try {
+      await mockAdminApi.bulkUpdateOrders(selectedOrders, newStatus);
+      console.log('Updated orders', selectedOrders, 'to status', newStatus);
+      setSelectedOrders([]);
+      // Refresh orders after bulk update
+      fetchOrders();
+    } catch (error) {
+      console.error('Error updating orders:', error);
+    }
   };
+
+  const handleStatusUpdate = async (orderId: number, newStatus: string) => {
+    try {
+      await mockAdminApi.updateOrderStatus(orderId, newStatus);
+      console.log('Updated order', orderId, 'to status', newStatus);
+      // Refresh orders after update
+      fetchOrders();
+    } catch (error) {
+      console.error('Error updating order status:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -146,7 +145,7 @@ export default function OrdersPage() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">
-            {filteredOrders.length} orders
+            {pagination.total} orders
           </span>
         </div>
       </div>
@@ -159,7 +158,7 @@ export default function OrdersPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search orders by order number, customer name, or email..."
+                placeholder="Search orders by ID, customer name, or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -171,7 +170,10 @@ export default function OrdersPage() {
               <Filter className="w-4 h-4 text-gray-500" />
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+                }}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Status</option>
@@ -205,6 +207,12 @@ export default function OrdersPage() {
                 className="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700"
               >
                 Mark as Shipped
+              </button>
+              <button
+                onClick={() => handleBulkStatusUpdate('delivered')}
+                className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Mark as Delivered
               </button>
               <button
                 onClick={() => setSelectedOrders([])}
@@ -268,7 +276,7 @@ export default function OrdersPage() {
                   <td className="px-4 py-4">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
-                        {order.orderNumber}
+                        ORD-{order.id.toString().padStart(6, '0')}
                       </div>
                       <div className="text-sm text-gray-500">
                         ID: {order.id}
@@ -278,26 +286,34 @@ export default function OrdersPage() {
                   <td className="px-4 py-4">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
-                        {order.customerName}
+                        {order.customer_name}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {order.customerEmail}
+                        {order.customer_email}
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-500">
-                    {new Date(order.date).toLocaleDateString()}
+                    {new Date(order.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
                       {getStatusIcon(order.status)}
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                      </span>
+                      <select
+                        value={order.status}
+                        onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
+                        className={`text-xs px-2 py-1 rounded-full border-0 focus:ring-2 focus:ring-blue-500 ${getStatusColor(order.status)}`}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
                     </div>
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-500">
-                    {order.items} items
+                    {order.items.length} items
                   </td>
                   <td className="px-4 py-4 text-sm font-medium text-gray-900">
                     ${order.total.toFixed(2)}
@@ -305,18 +321,21 @@ export default function OrdersPage() {
                   <td className="px-4 py-4 text-sm font-medium">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => console.log('View order', order.id)}
-                        className="text-blue-600 hover:text-blue-800"
+                        onClick={() => console.log('View order details:', order)}
+                        className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
                         title="View Details"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button
-                        className="text-gray-400 hover:text-gray-600"
-                        title="More Actions"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
+                      <div className="relative group">
+                        <button
+                          className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-50"
+                          title="More Actions"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                        {/* Dropdown menu can be added here */}
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -339,6 +358,34 @@ export default function OrdersPage() {
         )}
       </div>
 
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+              disabled={pagination.page === 1}
+              className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              Previous
+            </button>
+            <span className="px-3 py-1 text-sm">
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <button
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+              disabled={pagination.page === pagination.totalPages}
+              className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Statistics */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200">
@@ -347,7 +394,7 @@ export default function OrdersPage() {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Pending</p>
               <p className="text-lg font-semibold text-gray-900">
-                {mockOrders.filter(o => o.status === 'pending').length}
+                {orders.filter(o => o.status === 'pending').length}
               </p>
             </div>
           </div>
@@ -358,7 +405,7 @@ export default function OrdersPage() {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Processing</p>
               <p className="text-lg font-semibold text-gray-900">
-                {mockOrders.filter(o => o.status === 'processing').length}
+                {orders.filter(o => o.status === 'processing').length}
               </p>
             </div>
           </div>
@@ -369,7 +416,7 @@ export default function OrdersPage() {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Shipped</p>
               <p className="text-lg font-semibold text-gray-900">
-                {mockOrders.filter(o => o.status === 'shipped').length}
+                {orders.filter(o => o.status === 'shipped').length}
               </p>
             </div>
           </div>
@@ -380,7 +427,7 @@ export default function OrdersPage() {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Delivered</p>
               <p className="text-lg font-semibold text-gray-900">
-                {mockOrders.filter(o => o.status === 'delivered').length}
+                {orders.filter(o => o.status === 'delivered').length}
               </p>
             </div>
           </div>
