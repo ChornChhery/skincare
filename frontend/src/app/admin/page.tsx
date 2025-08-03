@@ -1,82 +1,45 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Filter, Eye, Check, X, Star, MessageSquare, User, Calendar, Flag, Clock } from 'lucide-react';
+import { mockAdminApi } from '@/lib/mockApi'; // Import the mock API
 
 export default function ReviewsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [ratingFilter, setRatingFilter] = useState('all');
   const [selectedReviews, setSelectedReviews] = useState<number[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  });
 
-  // Mock reviews data
-  const mockReviews = [
-    {
-      id: 1,
-      productName: 'Gentle Cleanser',
-      customerName: 'Sarah Johnson',
-      customerEmail: 'sarah@example.com',
-      rating: 5,
-      title: 'Amazing product!',
-      comment: 'This cleanser is absolutely fantastic. It leaves my skin feeling clean and refreshed without any dryness. I have been using it for 3 months now and my skin has never looked better.',
-      date: '2024-01-25',
-      status: 'pending',
-      helpful: 12,
-      reported: 0
-    },
-    {
-      id: 2,
-      productName: 'Vitamin C Serum',
-      customerName: 'Mike Chen',
-      customerEmail: 'mike@example.com',
-      rating: 4,
-      title: 'Good results',
-      comment: 'Nice serum that brightened my skin tone. The texture is a bit sticky but the results are worth it. Would recommend to others.',
-      date: '2024-01-24',
-      status: 'approved',
-      helpful: 8,
-      reported: 0
-    },
-    {
-      id: 3,
-      productName: 'Hydrating Moisturizer',
-      customerName: 'Emma Wilson',
-      customerEmail: 'emma@example.com',
-      rating: 2,
-      title: 'Not for sensitive skin',
-      comment: 'This moisturizer caused some irritation on my sensitive skin. The formula might be too strong for people with similar skin concerns.',
-      date: '2024-01-23',
-      status: 'approved',
-      helpful: 15,
-      reported: 2
-    },
-    {
-      id: 4,
-      productName: 'Retinol',
-      customerName: 'David Kim',
-      customerEmail: 'david@example.com',
-      rating: 5,
-      title: 'Excellent anti-aging',
-      comment: 'This retinol product has significantly reduced my fine lines. Great value for money and gentle enough for nightly use.',
-      date: '2024-01-22',
-      status: 'pending',
-      helpful: 6,
-      reported: 0
-    },
-    {
-      id: 5,
-      productName: 'Sunscreen Anessa',
-      customerName: 'Lisa Brown',
-      customerEmail: 'lisa@example.com',
-      rating: 1,
-      title: 'Terrible experience',
-      comment: 'This is the worst product ever. Completely useless and overpriced. Do not buy this garbage.',
-      date: '2024-01-21',
-      status: 'flagged',
-      helpful: 2,
-      reported: 8
+  // Fetch reviews from mock API
+  const fetchReviews = async () => {
+    try {
+      setLoading(true);
+      const response = await mockAdminApi.getAdminReviews(
+        pagination.page,
+        pagination.limit,
+        statusFilter === 'all' ? '' : statusFilter
+      );
+      setReviews(response.data);
+      setPagination(response.pagination);
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Fetch reviews on component mount and when filters change
+  useEffect(() => {
+    fetchReviews();
+  }, [pagination.page, statusFilter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -108,17 +71,17 @@ export default function ReviewsPage() {
     );
   };
 
-  const filteredReviews = mockReviews.filter(review => {
-    const matchesSearch = 
-      review.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      review.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      review.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      review.comment.toLowerCase().includes(searchTerm.toLowerCase());
+  // Client-side filtering for search and rating
+  const filteredReviews = reviews.filter(review => {
+    const matchesSearch = !searchTerm || (
+      review.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      review.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      review.comment.toLowerCase().includes(searchTerm.toLowerCase())
+    );
     
-    const matchesStatus = statusFilter === 'all' || review.status === statusFilter;
     const matchesRating = ratingFilter === 'all' || review.rating.toString() === ratingFilter;
     
-    return matchesSearch && matchesStatus && matchesRating;
+    return matchesSearch && matchesRating;
   });
 
   const handleSelectReview = (reviewId: number) => {
@@ -137,14 +100,49 @@ export default function ReviewsPage() {
     );
   };
 
-  const handleBulkAction = (action: string) => {
-    console.log(`Bulk ${action} for reviews:`, selectedReviews);
-    setSelectedReviews([]);
+  const handleBulkAction = async (action: string) => {
+    try {
+      if (action === 'approve') {
+        await mockAdminApi.bulkUpdateReviews(selectedReviews, 'approved');
+      } else if (action === 'reject') {
+        await mockAdminApi.bulkUpdateReviews(selectedReviews, 'rejected');
+      }
+      console.log(`Bulk ${action} for reviews:`, selectedReviews);
+      setSelectedReviews([]);
+      // Refresh reviews after bulk action
+      fetchReviews();
+    } catch (error) {
+      console.error('Error with bulk action:', error);
+    }
   };
 
-  const handleReviewAction = (reviewId: number, action: string) => {
-    console.log(`${action} review ${reviewId}`);
+  const handleReviewAction = async (reviewId: number, action: string) => {
+    try {
+      if (action === 'approve') {
+        await mockAdminApi.updateReviewStatus(reviewId, 'approved');
+        fetchReviews();
+      } else if (action === 'reject') {
+        await mockAdminApi.updateReviewStatus(reviewId, 'rejected');
+        fetchReviews();
+      } else if (action === 'delete') {
+        await mockAdminApi.deleteReview(reviewId);
+        fetchReviews();
+      }
+      console.log(`${action} review ${reviewId}`);
+    } catch (error) {
+      console.error('Error with review action:', error);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -156,7 +154,7 @@ export default function ReviewsPage() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">
-            {filteredReviews.length} reviews
+            {pagination.total} reviews
           </span>
         </div>
       </div>
@@ -181,7 +179,10 @@ export default function ReviewsPage() {
               <Filter className="w-4 h-4 text-gray-500" />
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+                }}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Status</option>
@@ -252,7 +253,7 @@ export default function ReviewsPage() {
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{review.title}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Review #{review.id}</h3>
                     {renderStars(review.rating)}
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(review.status)}`}>
                       {review.status.charAt(0).toUpperCase() + review.status.slice(1)}
@@ -261,33 +262,27 @@ export default function ReviewsPage() {
                   <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
                     <div className="flex items-center gap-1">
                       <User className="w-4 h-4" />
-                      {review.customerName}
+                      {review.customer_name}
                     </div>
                     <div className="flex items-center gap-1">
                       <MessageSquare className="w-4 h-4" />
-                      {review.productName}
+                      {review.product_name}
                     </div>
                     <div className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
-                      {new Date(review.date).toLocaleDateString()}
+                      {new Date(review.created_at).toLocaleDateString()}
                     </div>
                   </div>
                   <p className="text-gray-700 mb-3">{review.comment}</p>
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span>{review.helpful} found helpful</span>
-                    {review.reported > 0 && (
-                      <span className="flex items-center gap-1 text-red-600">
-                        <Flag className="w-4 h-4" />
-                        {review.reported} reports
-                      </span>
-                    )}
+                  <div className="text-sm text-gray-500">
+                    <span>Customer: {review.customer_email}</span>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleReviewAction(review.id, 'view')}
-                  className="p-2 text-gray-400 hover:text-gray-600"
+                  onClick={() => console.log('View review details:', review)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded"
                   title="View Details"
                 >
                   <Eye className="w-4 h-4" />
@@ -296,29 +291,27 @@ export default function ReviewsPage() {
                   <>
                     <button
                       onClick={() => handleReviewAction(review.id, 'approve')}
-                      className="p-2 text-green-600 hover:text-green-800"
+                      className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded"
                       title="Approve"
                     >
                       <Check className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleReviewAction(review.id, 'reject')}
-                      className="p-2 text-red-600 hover:text-red-800"
+                      className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
                       title="Reject"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </>
                 )}
-                {review.reported > 0 && (
-                  <button
-                    onClick={() => handleReviewAction(review.id, 'investigate')}
-                    className="p-2 text-orange-600 hover:text-orange-800"
-                    title="Investigate Reports"
-                  >
-                    <Flag className="w-4 h-4" />
-                  </button>
-                )}
+                <button
+                  onClick={() => handleReviewAction(review.id, 'delete')}
+                  className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                  title="Delete Review"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>
@@ -338,6 +331,34 @@ export default function ReviewsPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+              disabled={pagination.page === 1}
+              className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              Previous
+            </button>
+            <span className="px-3 py-1 text-sm">
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <button
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+              disabled={pagination.page === pagination.totalPages}
+              className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Statistics */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200">
@@ -346,7 +367,7 @@ export default function ReviewsPage() {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Total Reviews</p>
               <p className="text-lg font-semibold text-gray-900">
-                {mockReviews.length}
+                {pagination.total}
               </p>
             </div>
           </div>
@@ -357,18 +378,18 @@ export default function ReviewsPage() {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Pending</p>
               <p className="text-lg font-semibold text-gray-900">
-                {mockReviews.filter(r => r.status === 'pending').length}
+                {reviews.filter(r => r.status === 'pending').length}
               </p>
             </div>
           </div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="flex items-center">
-            <Flag className="w-8 h-8 text-red-500" />
+            <Check className="w-8 h-8 text-green-500" />
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Flagged</p>
+              <p className="text-sm font-medium text-gray-500">Approved</p>
               <p className="text-lg font-semibold text-gray-900">
-                {mockReviews.filter(r => r.status === 'flagged').length}
+                {reviews.filter(r => r.status === 'approved').length}
               </p>
             </div>
           </div>
@@ -379,7 +400,10 @@ export default function ReviewsPage() {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Avg Rating</p>
               <p className="text-lg font-semibold text-gray-900">
-                {(mockReviews.reduce((sum, r) => sum + r.rating, 0) / mockReviews.length).toFixed(1)}
+                {reviews.length > 0 
+                  ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+                  : '0.0'
+                }
               </p>
             </div>
           </div>
