@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Percent, Gift, Calendar, Users, Eye, Edit, Trash2, Plus, Search, Filter, TrendingUp, Clock, MoreVertical, CheckSquare, Square } from 'lucide-react';
+import { mockAdminApi } from '@/lib/mockApi';
 
 interface Coupon {
   id: number;
@@ -21,205 +22,6 @@ interface Coupon {
   applicableCategories?: string[];
   isFirstTimeOnly?: boolean;
 }
-
-// Extended mock API for coupons
-const mockCouponApi = {
-  getCoupons: async (page = 1, limit = 10, search = '', status = '', type = '') => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    let filteredCoupons = [...mockCoupons];
-    
-    if (search) {
-      filteredCoupons = filteredCoupons.filter(c => 
-        c.code.toLowerCase().includes(search.toLowerCase()) ||
-        c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.description.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-    
-    if (status && status !== 'all') {
-      filteredCoupons = filteredCoupons.filter(c => c.status === status);
-    }
-    
-    if (type && type !== 'all') {
-      filteredCoupons = filteredCoupons.filter(c => c.type === type);
-    }
-    
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedCoupons = filteredCoupons.slice(startIndex, endIndex);
-    
-    return {
-      data: paginatedCoupons,
-      pagination: {
-        page,
-        limit,
-        total: filteredCoupons.length,
-        totalPages: Math.ceil(filteredCoupons.length / limit)
-      }
-    };
-  },
-
-  createCoupon: async (couponData: Omit<Coupon, 'id' | 'usedCount' | 'created_at'>) => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const newCoupon: Coupon = {
-      id: Math.max(...mockCoupons.map(c => c.id)) + 1,
-      ...couponData,
-      usedCount: 0,
-      created_at: new Date().toISOString().split('T')[0]
-    };
-    mockCoupons.push(newCoupon);
-    return { data: newCoupon };
-  },
-
-  updateCoupon: async (id: number, couponData: Partial<Coupon>) => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const index = mockCoupons.findIndex(c => c.id === id);
-    if (index === -1) throw new Error("Coupon not found");
-    
-    mockCoupons[index] = { ...mockCoupons[index], ...couponData };
-    return { data: mockCoupons[index] };
-  },
-
-  deleteCoupon: async (id: number) => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const index = mockCoupons.findIndex(c => c.id === id);
-    if (index === -1) throw new Error("Coupon not found");
-    
-    mockCoupons.splice(index, 1);
-    return { success: true };
-  },
-
-  bulkUpdateCoupons: async (couponIds: number[], updates: Partial<Coupon>) => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    couponIds.forEach(id => {
-      const index = mockCoupons.findIndex(c => c.id === id);
-      if (index !== -1) {
-        mockCoupons[index] = { ...mockCoupons[index], ...updates };
-      }
-    });
-    
-    return { success: true };
-  },
-
-  getCouponStats: async () => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return {
-      total: mockCoupons.length,
-      active: mockCoupons.filter(c => c.status === 'active').length,
-      totalUses: mockCoupons.reduce((sum, c) => sum + c.usedCount, 0),
-      expired: mockCoupons.filter(c => c.status === 'expired').length,
-      totalSavings: 2450.75, // Mock total savings amount
-      averageDiscount: 18.5 // Mock average discount percentage
-    };
-  }
-};
-
-// Mock coupons data
-const mockCoupons: Coupon[] = [
-  {
-    id: 1,
-    code: 'WELCOME20',
-    name: 'Welcome New Customers',
-    description: '20% off for first-time customers',
-    type: 'percentage',
-    value: 20,
-    minOrderValue: 50,
-    maxDiscount: 30,
-    usageLimit: 1000,
-    usedCount: 245,
-    status: 'active',
-    startDate: '2024-01-01',
-    endDate: '2024-12-31',
-    created_at: '2024-01-01',
-    isFirstTimeOnly: true,
-    applicableCategories: ['all']
-  },
-  {
-    id: 2,
-    code: 'SAVE15',
-    name: 'Save $15 on Orders',
-    description: '$15 off on orders over $100',
-    type: 'fixed',
-    value: 15,
-    minOrderValue: 100,
-    usageLimit: 500,
-    usedCount: 87,
-    status: 'active',
-    startDate: '2024-01-15',
-    endDate: '2024-03-31',
-    created_at: '2024-01-15',
-    applicableCategories: ['serum', 'moisturizer']
-  },
-  {
-    id: 3,
-    code: 'SUMMER25',
-    name: 'Summer Sale',
-    description: '25% off summer collection',
-    type: 'percentage',
-    value: 25,
-    minOrderValue: 75,
-    maxDiscount: 50,
-    usageLimit: 200,
-    usedCount: 156,
-    status: 'active',
-    startDate: '2024-06-01',
-    endDate: '2024-08-31',
-    created_at: '2024-05-25',
-    applicableCategories: ['sunscreen', 'cleanser']
-  },
-  {
-    id: 4,
-    code: 'EXPIRED10',
-    name: 'Holiday Special',
-    description: '10% off holiday items',
-    type: 'percentage',
-    value: 10,
-    minOrderValue: 30,
-    maxDiscount: 20,
-    usageLimit: 300,
-    usedCount: 300,
-    status: 'expired',
-    startDate: '2023-12-01',
-    endDate: '2023-12-31',
-    created_at: '2023-11-20',
-    applicableCategories: ['all']
-  },
-  {
-    id: 5,
-    code: 'INACTIVE5',
-    name: 'Test Coupon',
-    description: '$5 off test coupon',
-    type: 'fixed',
-    value: 5,
-    minOrderValue: 25,
-    usageLimit: 50,
-    usedCount: 0,
-    status: 'inactive',
-    startDate: '2024-02-01',
-    endDate: '2024-02-28',
-    created_at: '2024-01-30',
-    applicableCategories: ['treatment']
-  },
-  {
-    id: 6,
-    code: 'SKINCARE30',
-    name: 'Skincare Bundle',
-    description: '30% off when buying 3+ items',
-    type: 'percentage',
-    value: 30,
-    minOrderValue: 150,
-    maxDiscount: 75,
-    usageLimit: 100,
-    usedCount: 42,
-    status: 'active',
-    startDate: '2024-07-01',
-    endDate: '2024-09-30',
-    created_at: '2024-06-28',
-    applicableCategories: ['all']
-  }
-];
 
 export default function CouponsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -268,7 +70,7 @@ export default function CouponsPage() {
   const fetchCoupons = async () => {
     try {
       setLoading(true);
-      const response = await mockCouponApi.getCoupons(1, 100, searchTerm, statusFilter, typeFilter);
+      const response = await mockAdminApi.getCoupons(1, 100, searchTerm, statusFilter, typeFilter);
       setCoupons(response.data);
     } catch (error) {
       console.error('Failed to fetch coupons:', error);
@@ -279,7 +81,7 @@ export default function CouponsPage() {
 
   const fetchStats = async () => {
     try {
-      const statsData = await mockCouponApi.getCouponStats();
+      const statsData = await mockAdminApi.getCouponStats();
       setStats(statsData);
     } catch (error) {
       console.error('Failed to fetch stats:', error);
@@ -338,9 +140,9 @@ export default function CouponsPage() {
     
     try {
       if (showModal?.type === 'add') {
-        await mockCouponApi.createCoupon(formData);
+        await mockAdminApi.createCoupon(formData);
       } else if (showModal?.coupon) {
-        await mockCouponApi.updateCoupon(showModal.coupon.id, formData);
+        await mockAdminApi.updateCoupon(showModal.coupon.id, formData);
       }
       
       await fetchCoupons();
@@ -354,7 +156,7 @@ export default function CouponsPage() {
 
   const handleDelete = async (coupon: Coupon) => {
     try {
-      await mockCouponApi.deleteCoupon(coupon.id);
+      await mockAdminApi.deleteCoupon(coupon.id);
       await fetchCoupons();
       await fetchStats();
       setShowDeleteModal(null);
@@ -368,12 +170,12 @@ export default function CouponsPage() {
       if (action === 'delete') {
         // Delete selected coupons
         for (const id of selectedCoupons) {
-          await mockCouponApi.deleteCoupon(id);
+          await mockAdminApi.deleteCoupon(id);
         }
       } else {
         // Update status of selected coupons
         const status = action === 'activate' ? 'active' : 'inactive';
-        await mockCouponApi.bulkUpdateCoupons(selectedCoupons, { status });
+        await mockAdminApi.bulkUpdateCoupons(selectedCoupons, { status });
       }
       
       await fetchCoupons();
