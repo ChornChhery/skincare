@@ -398,3 +398,354 @@ git pull origin main
 git add .
 git commit -m "Your commit message"
 git push origin main
+
+
+
+# 🧴 Skincare E-commerce Platform
+
+A comprehensive full-stack e-commerce solution built specifically for skincare businesses, featuring a modern customer storefront and powerful administrative dashboard.
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Quick Start](#quick-start)
+- [Development](#development)
+- [Deployment](#deployment)
+- [API Documentation](#api-documentation)
+- [Contributing](#contributing)
+- [License](#license)
+
+## 🌟 Overview
+
+This platform provides a complete e-commerce solution tailored for skincare businesses, offering both customer-facing shopping experiences and comprehensive administrative tools. The system handles everything from product catalog management to order fulfillment, customer relationships, and business analytics.
+
+### Key Highlights
+- 🛒 **Complete Shopping Experience** - Product browsing, cart, checkout, order tracking
+- 👑 **Comprehensive Admin Panel** - 11 specialized management sections
+- 📱 **Responsive Design** - Optimized for desktop, tablet, and mobile
+- 🐳 **Containerized Deployment** - Docker-ready for easy deployment
+- 🧪 **Development-Friendly** - Mock APIs for rapid development
+- 📊 **Business Intelligence** - Built-in analytics and reporting
+
+## ✨ Features
+
+### 🛍️ Customer Features
+- **Product Catalog**
+  - Browse skincare products by category
+  - Detailed product pages with ingredients and skin type recommendations
+  - Product search and filtering capabilities
+  - High-quality product imagery
+
+- **Shopping Experience**
+  - Intuitive shopping cart functionality
+  - Secure checkout process
+  - Wishlist for saving favorite products
+  - Order tracking and history
+
+- **User Management**
+  - Customer registration and authentication
+  - Profile management with skincare preferences
+  - Order history and account settings
+
+### 👨‍💼 Administrative Features
+- **Dashboard Analytics** - Revenue, orders, customer metrics with growth tracking
+- **Product Management** - Complete CRUD operations for product catalog
+- **Order Processing** - Order tracking, status updates, and fulfillment management
+- **Customer Management** - Customer profiles, purchase history, and support tools
+- **Inventory Control** - Stock level monitoring and management
+- **Marketing Tools** - Coupon creation, discount management, and promotional campaigns
+- **Content Moderation** - Review approval and management system
+- **Business Intelligence** - Sales reports, analytics, and performance metrics
+- **Category Management** - Product categorization and organization
+- **System Configuration** - Application settings and customization
+- **Multi-level Access** - Role-based admin permissions
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **Framework:** Next.js 13+ with App Router
+- **Language:** TypeScript/JavaScript
+- **Styling:** Tailwind CSS
+- **State Management:** React Context API
+- **Authentication:** Custom JWT implementation
+
+### Backend
+- **Services:** RESTful API architecture
+- **Database:** Comprehensive relational database schema
+- **Authentication:** Secure user and admin authentication systems
+
+### DevOps
+- **Containerization:** Docker & Docker Compose
+- **Development:** Hot reload, mock APIs
+- **Production:** Scalable containerized deployment
+
+## 📁 Project Structure
+
+```
+skincare/
+├── frontend/                    # Next.js Application
+│   ├── app/                    # App Router Pages
+│   │   ├── admin/              # Admin Panel (11 sections)
+│   │   │   ├── categories/     # Category management
+│   │   │   ├── coupons/        # Discount management
+│   │   │   ├── customers/      # Customer management
+│   │   │   ├── inventory/      # Stock management
+│   │   │   ├── login/          # Admin authentication
+│   │   │   ├── orders/         # Order management
+│   │   │   ├── products/       # Product management
+│   │   │   ├── reports/        # Business analytics
+│   │   │   ├── reviews/        # Review moderation
+│   │   │   ├── sales/          # Sales analytics
+│   │   │   └── settings/       # System settings
+│   │   ├── cart/               # Shopping cart
+│   │   ├── login/              # Customer auth
+│   │   ├── orders/             # Order history
+│   │   ├── products/           # Product catalog
+│   │   ├── profile/            # User profiles
+│   │   ├── register/           # Registration
+│   │   └── wishlist/           # Saved items
+│   ├── components/             # Reusable Components
+│   ├── contexts/               # State Management
+│   └── lib/                    # APIs & Utilities
+├── services/                   # Backend Services
+├── docker-compose.yml          # Container Configuration
+├── db.txt                      # Database Schema
+└── README.md                   # Documentation
+```
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 18+ 
+- Docker & Docker Compose
+- Git
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd skincare
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start with Docker (Recommended)**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Or start manually**
+   ```bash
+   # Start backend services
+   cd services
+   npm run dev
+
+   # Start frontend (in new terminal)
+   cd frontend
+   npm run dev
+   ```
+
+5. **Access the application**
+   - **Customer Store:** http://localhost:3000
+   - **Admin Panel:** http://localhost:3000/admin
+
+### Default Credentials
+
+**Customer Demo Account:**
+- Email: `demo@example.com`
+- Password: `demo123`
+
+**Admin Account:**
+- Email: `admin@skincare.com`
+- Password: `admin123`
+
+## 🔧 Development
+
+### Frontend Development
+```bash
+cd frontend
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run lint         # Run linting
+```
+
+### Backend Development
+```bash
+cd services
+npm run dev          # Start backend services
+npm run test         # Run tests
+```
+
+### Using Mock Data
+The frontend includes comprehensive mock data for development:
+- 27+ skincare products with detailed information
+- Customer profiles and order history
+- Admin analytics and reports
+- Review and rating systems
+- Coupon and discount management
+
+## 🐳 Deployment
+
+### Docker Deployment
+```bash
+# Build and start all services
+docker-compose up --build -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+### Production Environment Variables
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/skincare
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+
+# Authentication
+JWT_SECRET=your-super-secret-jwt-key
+JWT_EXPIRES_IN=7d
+
+# API
+API_BASE_URL=https://api.yourdomain.com
+FRONTEND_URL=https://yourdomain.com
+
+# Email (optional)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+```
+
+## 📚 API Documentation
+
+### Customer Endpoints
+```
+GET    /api/products           # Get all products
+GET    /api/products/:id       # Get product details
+POST   /api/auth/login         # Customer login
+POST   /api/auth/register      # Customer registration
+GET    /api/orders             # Get user orders
+POST   /api/orders             # Create new order
+```
+
+### Admin Endpoints
+```
+POST   /api/admin/login        # Admin authentication
+GET    /api/admin/dashboard    # Dashboard analytics
+GET    /api/admin/products     # Product management
+POST   /api/admin/products     # Create product
+PUT    /api/admin/products/:id # Update product
+DELETE /api/admin/products/:id # Delete product
+GET    /api/admin/orders       # Order management
+GET    /api/admin/customers    # Customer management
+```
+
+## 🧪 Testing
+
+### Frontend Testing
+```bash
+cd frontend
+npm run test          # Run unit tests
+npm run test:coverage # Coverage report
+```
+
+### Backend Testing
+```bash
+cd services
+npm run test          # Run API tests
+npm run test:e2e      # End-to-end tests
+```
+
+## 🤝 Contributing
+
+1. **Fork the repository**
+2. **Create a feature branch**
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+3. **Commit your changes**
+   ```bash
+   git commit -m 'Add some amazing feature'
+   ```
+4. **Push to the branch**
+   ```bash
+   git push origin feature/amazing-feature
+   ```
+5. **Open a Pull Request**
+
+### Development Guidelines
+- Follow TypeScript best practices
+- Use Tailwind CSS for styling
+- Maintain component modularity
+- Write comprehensive tests
+- Update documentation for new features
+
+## 📊 Database Schema
+
+The platform uses a comprehensive database schema supporting:
+- **Products & Categories** - Complete product management
+- **Users & Authentication** - Customer and admin accounts
+- **Orders & Transactions** - E-commerce operations
+- **Reviews & Ratings** - Customer feedback system
+- **Coupons & Promotions** - Marketing campaigns
+- **Analytics & Reporting** - Business intelligence
+
+*See `db.txt` for complete schema documentation.*
+
+## 🔐 Security Features
+
+- JWT-based authentication
+- Password hashing and validation
+- Role-based access control
+- CSRF protection
+- Input validation and sanitization
+- Secure API endpoints
+
+## 📈 Performance Optimizations
+
+- Server-side rendering (SSR)
+- Image optimization
+- Code splitting
+- Caching strategies
+- Database query optimization
+- CDN integration ready
+
+## 🌍 Browser Support
+
+- Chrome 90+
+- Firefox 90+
+- Safari 14+
+- Edge 90+
+- Mobile browsers (iOS Safari, Chrome Mobile)
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 👥 Team
+
+**Developer:** Jame  
+**Student ID:** 6520310203  
+**Project Type:** Full-Stack E-commerce Platform  
+
+## 🆘 Support
+
+For support and questions:
+- Create an issue in the repository
+- Check the documentation in `README.md`
+- Review the database schema in `db.txt`
+
+---
+
+**Built with ❤️ for the skincare industry**
