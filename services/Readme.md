@@ -1,4 +1,24 @@
-# 🏗️ Complete Skincare E-commerce Backend Structure & Database Design
+# 🏗️ Complete Skincare E-commerce Backend Structure & Database Design (Updated)
+
+## 📊 **Database Strategy for Machine Learning**
+
+### 🔵 **PostgreSQL** - Primary Transactional Database
+**Used for:** Core business data, structured relationships
+- ✅ Users, Products, Orders, Reviews, Coupons
+- ✅ **ML Training Data Source** - Historical purchases, user preferences, ratings
+- ✅ **Real-time ML Queries** - Current user data, product features
+
+### 🟢 **MongoDB** - Analytics & ML Data Lake
+**Used for:** Unstructured ML data, analytics, recommendations
+- ✅ **ML Model Storage** - Trained models, feature vectors, embeddings
+- ✅ **User Behavior Analytics** - Clicks, views, session data
+- ✅ **Recommendation Results** - Pre-computed recommendations
+- ✅ **Search Analytics** - Query patterns, result interactions
+
+### 🔄 **ML Data Flow:**
+PostgreSQL → (ETL) → MongoDB → ML Training → Models → MongoDB → API Recommendations
+
+---
 
 ## 📁 Project Directory Structure
 
@@ -14,6 +34,7 @@ skincare-ecommerce-backend/
 │   │   │   │   ├── 📂 handlers/
 │   │   │   │   │   ├── auth.go
 │   │   │   │   │   ├── password_reset.go
+│   │   │   │   │   ├── profile.go                    # 🆕 Profile picture uploads
 │   │   │   │   │   ├── products.go
 │   │   │   │   │   ├── categories.go
 │   │   │   │   │   ├── orders.go
@@ -22,6 +43,7 @@ skincare-ecommerce-backend/
 │   │   │   │   │   ├── reviews.go
 │   │   │   │   │   ├── cart.go
 │   │   │   │   │   ├── wishlist.go
+│   │   │   │   │   ├── file_upload.go               # 🆕 File upload handler
 │   │   │   │   │   └── admin.go
 │   │   │   │   ├── 📂 middleware/
 │   │   │   │   │   ├── auth.go
@@ -29,6 +51,7 @@ skincare-ecommerce-backend/
 │   │   │   │   │   ├── cors.go
 │   │   │   │   │   ├── rate_limit.go
 │   │   │   │   │   ├── validation.go
+│   │   │   │   │   ├── file_upload.go               # 🆕 File upload middleware
 │   │   │   │   │   └── logging.go
 │   │   │   │   └── 📂 routes/
 │   │   │   │       ├── api.go
@@ -38,6 +61,7 @@ skincare-ecommerce-backend/
 │   │   │   │   ├── auth_service.go
 │   │   │   │   ├── email_service.go
 │   │   │   │   ├── password_reset_service.go
+│   │   │   │   ├── file_upload_service.go           # 🆕 File upload service
 │   │   │   │   ├── product_service.go
 │   │   │   │   ├── category_service.go
 │   │   │   │   ├── order_service.go
@@ -62,9 +86,11 @@ skincare-ecommerce-backend/
 │   │   │   │   │   ├── cache_repo.go
 │   │   │   │   │   └── cart_cache_repo.go
 │   │   │   │   └── 📂 mongodb/
-│   │   │   │       └── analytics_repo.go
+│   │   │   │       ├── analytics_repo.go            # 🎯 ML Analytics
+│   │   │   │       ├── recommendation_repo.go       # 🎯 ML Recommendations  
+│   │   │   │       └── ml_data_repo.go              # 🎯 ML Training Data
 │   │   │   ├── 📂 models/
-│   │   │   │   ├── user.go
+│   │   │   │   ├── user.go                          # 🆕 Updated with profile_picture
 │   │   │   │   ├── product.go
 │   │   │   │   ├── category.go
 │   │   │   │   ├── order.go
@@ -84,10 +110,11 @@ skincare-ecommerce-backend/
 │   │   │       ├── tokens.go
 │   │   │       ├── validators.go
 │   │   │       ├── response.go
-│   │   │       └── pagination.go
+│   │   │       ├── pagination.go
+│   │   │       └── file_utils.go                    # 🆕 File handling utilities
 │   │   ├── 📂 migrations/
-│   │   │   ├── 001_create_enums.sql
-│   │   │   ├── 002_create_users.sql
+│   │   │   ├── 001_create_enums.sql                 # 🆕 Updated with 'acne' skin_type
+│   │   │   ├── 002_create_users.sql                 # 🆕 Updated with profile_picture
 │   │   │   ├── 003_create_user_addresses.sql
 │   │   │   ├── 004_create_categories.sql
 │   │   │   ├── 005_create_products.sql
@@ -101,6 +128,10 @@ skincare-ecommerce-backend/
 │   │   │   ├── 013_create_wishlists.sql
 │   │   │   ├── 014_create_indexes.sql
 │   │   │   └── 015_seed_data.sql
+│   │   ├── 📂 uploads/                               # 🆕 File storage directory
+│   │   │   ├── 📂 profiles/                         # User profile pictures
+│   │   │   ├── 📂 products/                         # Product images
+│   │   │   └── 📂 temp/                             # Temporary uploads
 │   │   ├── 📂 tests/
 │   │   │   ├── 📂 unit/
 │   │   │   ├── 📂 integration/
@@ -112,30 +143,33 @@ skincare-ecommerce-backend/
 │   │   ├── go.sum
 │   │   ├── .env.example
 │   │   └── Dockerfile
-│   └── 📂 ml-service/ (Python)
+│   └── 📂 ml-service/ (Python) # 🎯 Uses Both PostgreSQL + MongoDB
 │       ├── 📂 app/
 │       │   ├── 📂 api/
 │       │   │   ├── __init__.py
-│       │   │   ├── recommendations.py
-│       │   │   ├── analytics.py
-│       │   │   └── skin_analysis.py
+│       │   │   ├── recommendations.py               # Uses MongoDB recommendations
+│       │   │   ├── analytics.py                     # Uses MongoDB analytics
+│       │   │   └── skin_analysis.py                 # Uses PostgreSQL user data
 │       │   ├── 📂 models/
 │       │   │   ├── __init__.py
-│       │   │   ├── recommendation_model.py
-│       │   │   ├── skin_analysis_model.py
-│       │   │   └── collaborative_filtering.py
+│       │   │   ├── recommendation_model.py          # 🎯 Trained on PostgreSQL data
+│       │   │   ├── skin_analysis_model.py           # 🎯 Uses PostgreSQL user profiles
+│       │   │   ├── collaborative_filtering.py       # 🎯 PostgreSQL orders/reviews
+│       │   │   └── content_based_model.py           # 🎯 PostgreSQL product features
 │       │   ├── 📂 services/
 │       │   │   ├── __init__.py
-│       │   │   ├── ml_service.py
-│       │   │   ├── recommendation_service.py
-│       │   │   └── data_processor.py
+│       │   │   ├── ml_service.py                    # Orchestrates both databases
+│       │   │   ├── recommendation_service.py        # MongoDB cache + PostgreSQL data
+│       │   │   ├── data_processor.py                # ETL: PostgreSQL → MongoDB
+│       │   │   └── model_trainer.py                 # 🎯 Trains on PostgreSQL data
 │       │   ├── 📂 database/
 │       │   │   ├── __init__.py
-│       │   │   ├── mongodb.py
-│       │   │   └── postgres_connector.py
+│       │   │   ├── mongodb.py                       # 🎯 Analytics & ML results
+│       │   │   └── postgres_connector.py            # 🎯 Source data for training
 │       │   ├── 📂 utils/
 │       │   │   ├── __init__.py
 │       │   │   ├── data_validation.py
+│       │   │   ├── feature_extraction.py            # 🎯 Extract features from PostgreSQL
 │       │   │   └── model_utils.py
 │       │   ├── main.py
 │       │   └── config.py
@@ -146,43 +180,39 @@ skincare-ecommerce-backend/
 ├── 📂 database/
 │   ├── 📂 postgresql/
 │   │   ├── init.sql
-│   │   ├── schema.sql (your complete schema)
+│   │   ├── schema.sql                               # 🆕 Updated schema
 │   │   └── seed_data.sql
 │   ├── 📂 mongodb/
 │   │   ├── init.js
-│   │   └── collections.js
+│   │   ├── collections.js                           # 🎯 ML-focused collections
+│   │   └── indexes.js                               # 🎯 ML query optimization
 │   └── 📂 redis/
 │       └── redis.conf
 ├── 📂 scripts/
 │   ├── setup.sh
 │   ├── migrate.sh
 │   ├── seed.sh
+│   ├── ml_etl.sh                                    # 🎯 ETL script PostgreSQL → MongoDB
 │   └── deploy.sh
-├── 📂 docs/
-│   ├── API_DOCUMENTATION.md
-│   ├── DATABASE_SCHEMA.md
-│   └── DEPLOYMENT.md
 ├── docker-compose.yml
 ├── docker-compose.dev.yml
 ├── docker-compose.prod.yml
-├── .gitignore
-├── Makefile
 └── README.md
 ```
 
-## 🗄️ Complete Database Schema (PostgreSQL)
+## 🗄️ Updated PostgreSQL Database Schema
 
-### Your Complete Production-Ready Schema
+### Updated Schema with Profile Pictures & Acne Skin Type
 
 ```sql
 -- =============================================
--- SKINCARE E-COMMERCE DATABASE SCHEMA
+-- SKINCARE E-COMMERCE DATABASE SCHEMA (UPDATED)
 -- =============================================
 
--- Create ENUM types first
+-- Create ENUM types first (🆕 UPDATED with 'acne' skin type)
 CREATE TYPE user_role AS ENUM ('customer', 'admin', 'moderator');
 CREATE TYPE user_language AS ENUM ('en', 'kh');
-CREATE TYPE skin_type AS ENUM ('oily', 'dry', 'combination', 'sensitive', 'normal', 'all');
+CREATE TYPE skin_type AS ENUM ('oily', 'dry', 'combination', 'sensitive', 'normal', 'acne', 'all'); -- 🆕 Added 'acne'
 CREATE TYPE product_status AS ENUM ('draft', 'active', 'archived');
 CREATE TYPE order_status AS ENUM ('pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded');
 CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'partially_paid', 'refunded', 'partially_refunded', 'failed');
@@ -192,10 +222,10 @@ CREATE TYPE coupon_type AS ENUM ('percentage', 'fixed', 'free_shipping');
 CREATE TYPE coupon_status AS ENUM ('active', 'inactive', 'expired');
 
 -- =============================================
--- 1. USERS & AUTHENTICATION DOMAIN
+-- 1. USERS & AUTHENTICATION DOMAIN (🆕 UPDATED)
 -- =============================================
 
--- Main users table
+-- Main users table (🆕 Added profile_picture field)
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -205,9 +235,12 @@ CREATE TABLE users (
     phone VARCHAR(20),
     date_of_birth DATE,
     gender VARCHAR(10) CHECK (gender IN ('male', 'female', 'other')),
-    skin_type skin_type DEFAULT 'normal',
+    skin_type skin_type DEFAULT 'normal',                -- 🆕 Can now include 'acne'
     language user_language DEFAULT 'en',
     role user_role DEFAULT 'customer',
+    
+    -- 🆕 Profile Picture (for both users and admins)
+    profile_picture VARCHAR(500),                        -- 🆕 URL to profile image
     
     -- Account status
     is_active BOOLEAN DEFAULT true,
@@ -229,7 +262,7 @@ CREATE TABLE users (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- User addresses
+-- User addresses (unchanged)
 CREATE TABLE user_addresses (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -239,9 +272,6 @@ CREATE TABLE user_addresses (
     company VARCHAR(100),
     address_line1 VARCHAR(255) NOT NULL,
     address_line2 VARCHAR(255),
-    address_line3 VARCHAR(255),
-    address_line4 VARCHAR(255),
-    address_line5 VARCHAR(255),
     city VARCHAR(100) NOT NULL,
     state VARCHAR(100),
     postal_code VARCHAR(20) NOT NULL,
@@ -269,7 +299,7 @@ CREATE TABLE categories (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Main products table (matches mockApi perfectly)
+-- Main products table (🆕 Updated to work with 'acne' skin type)
 CREATE TABLE products (
     id SERIAL PRIMARY KEY,
     name_en VARCHAR(255) NOT NULL,
@@ -295,10 +325,10 @@ CREATE TABLE products (
     weight DECIMAL(8,2),
     dimensions JSONB,
     
-    -- Skincare specific (matching mockApi)
-    skin_type skin_type DEFAULT 'all',
+    -- Skincare specific (🆕 Now supports 'acne' skin type)
+    skin_type skin_type DEFAULT 'all',                   -- 🆕 Includes 'acne' option
     category VARCHAR(50) NOT NULL,
-    skin_concerns TEXT[],
+    skin_concerns TEXT[],                                -- 🆕 Can include 'acne' concern
     ingredients JSONB,
     usage_instructions TEXT,
     
@@ -497,35 +527,39 @@ CREATE TABLE wishlists (
 );
 
 -- =============================================
--- INDEXES FOR PERFORMANCE
+-- INDEXES FOR PERFORMANCE & ML QUERIES
 -- =============================================
 
 -- User indexes
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_skin_type ON users(skin_type);                   -- 🎯 ML: Skin type analysis
 CREATE INDEX idx_users_password_reset_token ON users(password_reset_token) WHERE password_reset_token IS NOT NULL;
 
 -- Product indexes
 CREATE INDEX idx_products_status ON products(status) WHERE status = 'active';
 CREATE INDEX idx_products_category ON products(category);
-CREATE INDEX idx_products_skin_type ON products(skin_type);
+CREATE INDEX idx_products_skin_type ON products(skin_type);            -- 🎯 ML: Product recommendations
 CREATE INDEX idx_products_featured ON products(is_featured) WHERE is_featured = true;
 CREATE INDEX idx_products_created_at ON products(created_at);
+CREATE INDEX idx_products_skin_concerns ON products USING GIN(skin_concerns); -- 🎯 ML: Concern-based matching
 
--- Order indexes
-CREATE INDEX idx_orders_user_id ON orders(user_id);
+-- Order indexes (🎯 Critical for ML training)
+CREATE INDEX idx_orders_user_id ON orders(user_id);                    -- 🎯 ML: User purchase history
 CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_orders_created_at ON orders(created_at);
+CREATE INDEX idx_orders_created_at ON orders(created_at);              -- 🎯 ML: Temporal patterns
 CREATE INDEX idx_orders_order_number ON orders(order_number);
 
--- Order items indexes
+-- Order items indexes (🎯 Critical for collaborative filtering)
 CREATE INDEX idx_order_items_order_id ON order_items(order_id);
-CREATE INDEX idx_order_items_product_id ON order_items(product_id);
+CREATE INDEX idx_order_items_product_id ON order_items(product_id);    -- 🎯 ML: Product popularity
+CREATE INDEX idx_order_items_user_product ON order_items(order_id, product_id); -- 🎯 ML: User-product matrix
 
--- Review indexes
-CREATE INDEX idx_reviews_product_id ON reviews(product_id);
+-- Review indexes (🎯 Important for rating-based recommendations)
+CREATE INDEX idx_reviews_product_id ON reviews(product_id);            -- 🎯 ML: Product ratings
+CREATE INDEX idx_reviews_user_id ON reviews(user_id);                  -- 🎯 ML: User rating patterns
 CREATE INDEX idx_reviews_status ON reviews(status) WHERE status = 'approved';
-CREATE INDEX idx_reviews_user_id ON reviews(user_id);
+CREATE INDEX idx_reviews_rating ON reviews(rating);                    -- 🎯 ML: Rating distribution
 
 -- Coupon indexes
 CREATE INDEX idx_coupons_code ON coupons(code);
@@ -536,9 +570,9 @@ CREATE INDEX idx_coupons_dates ON coupons(start_date, end_date);
 CREATE INDEX idx_shopping_cart_user_id ON shopping_cart(user_id);
 CREATE INDEX idx_shopping_cart_product_id ON shopping_cart(product_id);
 
--- Wishlist indexes
-CREATE INDEX idx_wishlists_user_id ON wishlists(user_id);
-CREATE INDEX idx_wishlists_product_id ON wishlists(product_id);
+-- Wishlist indexes (🎯 Useful for preference learning)
+CREATE INDEX idx_wishlists_user_id ON wishlists(user_id);              -- 🎯 ML: User preferences
+CREATE INDEX idx_wishlists_product_id ON wishlists(product_id);        -- 🎯 ML: Product wishlist frequency
 
 -- =============================================
 -- CONSTRAINTS & VALIDATIONS
@@ -567,320 +601,73 @@ CHECK (
 -- Date validations
 ALTER TABLE coupons ADD CONSTRAINT valid_coupon_dates 
 CHECK (start_date IS NULL OR end_date IS NULL OR start_date <= end_date);
+
+-- 🎯 ML-SPECIFIC VIEWS FOR TRAINING DATA
+-- =============================================
+
+-- User purchase behavior view (🎯 For collaborative filtering)
+CREATE VIEW user_purchase_matrix AS
+SELECT 
+    u.id as user_id,
+    u.skin_type,
+    u.date_of_birth,
+    oi.product_id,
+    p.category,
+    p.skin_type as product_skin_type,
+    p.skin_concerns,
+    COUNT(oi.id) as purchase_count,
+    AVG(oi.unit_price) as avg_price,
+    MAX(o.created_at) as last_purchase_date
+FROM users u
+JOIN orders o ON u.id = o.user_id
+JOIN order_items oi ON o.id = oi.order_id  
+JOIN products p ON oi.product_id = p.id
+WHERE o.status IN ('delivered', 'confirmed')
+GROUP BY u.id, u.skin_type, u.date_of_birth, oi.product_id, p.category, p.skin_type, p.skin_concerns;
+
+-- Product rating summary view (🎯 For content-based recommendations)
+CREATE VIEW product_rating_summary AS
+SELECT 
+    p.id as product_id,
+    p.category,
+    p.skin_type,
+    p.skin_concerns,
+    p.price,
+    COUNT(r.id) as review_count,
+    AVG(r.rating) as avg_rating,
+    COUNT(DISTINCT r.user_id) as unique_reviewers
+FROM products p
+LEFT JOIN reviews r ON p.id = r.product_id AND r.status = 'approved'
+WHERE p.status = 'active'
+GROUP BY p.id, p.category, p.skin_type, p.skin_concerns, p.price;
 ```
 
-## 🔧 Go Models Structure (Updated)
+## 🍃 MongoDB Collections Schema (🎯 ML-Optimized)
 
-### Core Models Based on Your Schema
-
-```go
-// internal/models/user.go
-type User struct {
-    ID                     uint       `json:"id" gorm:"primaryKey"`
-    Email                  string     `json:"email" gorm:"unique;not null"`
-    Password               string     `json:"-" gorm:"not null"`
-    FirstName              string     `json:"first_name"`
-    LastName               string     `json:"last_name"`
-    Phone                  string     `json:"phone"`
-    DateOfBirth            *time.Time `json:"date_of_birth" gorm:"type:date"`
-    Gender                 string     `json:"gender"`
-    SkinType               string     `json:"skin_type" gorm:"type:skin_type;default:'normal'"`
-    Language               string     `json:"language" gorm:"type:user_language;default:'en'"`
-    Role                   string     `json:"role" gorm:"type:user_role;default:'customer'"`
-    IsActive               bool       `json:"is_active" gorm:"default:true"`
-    EmailVerified          bool       `json:"email_verified" gorm:"default:false"`
-    EmailVerificationToken string     `json:"-"`
-    EmailVerifiedAt        *time.Time `json:"email_verified_at"`
-    PasswordResetToken     string     `json:"-"`
-    PasswordResetExpires   *time.Time `json:"-"`
-    TotalOrders            int        `json:"total_orders" gorm:"default:0"`
-    TotalSpent             float64    `json:"total_spent" gorm:"type:decimal(10,2);default:0"`
-    AvgRating              float64    `json:"avg_rating" gorm:"type:decimal(3,2);default:0"`
-    CreatedAt              time.Time  `json:"created_at"`
-    UpdatedAt              time.Time  `json:"updated_at"`
-    
-    // Relationships
-    Addresses    []UserAddress    `json:"addresses,omitempty" gorm:"foreignKey:UserID"`
-    Orders       []Order          `json:"orders,omitempty" gorm:"foreignKey:UserID"`
-    Reviews      []Review         `json:"reviews,omitempty" gorm:"foreignKey:UserID"`
-    CartItems    []ShoppingCart   `json:"cart_items,omitempty" gorm:"foreignKey:UserID"`
-    Wishlists    []Wishlist       `json:"wishlists,omitempty" gorm:"foreignKey:UserID"`
-}
-
-// internal/models/product.go
-type Product struct {
-    ID                   uint       `json:"id" gorm:"primaryKey"`
-    NameEn               string     `json:"name_en" gorm:"not null"`
-    NameKh               string     `json:"name_kh"`
-    Slug                 string     `json:"slug" gorm:"unique;not null"`
-    DescriptionEn        string     `json:"description_en" gorm:"type:text"`
-    DescriptionKh        string     `json:"description_kh" gorm:"type:text"`
-    ShortDescription     string     `json:"short_description"`
-    SKU                  string     `json:"sku" gorm:"unique;not null"`
-    Barcode              string     `json:"barcode"`
-    Price                float64    `json:"price" gorm:"type:decimal(10,2);not null"`
-    CompareAtPrice       *float64   `json:"compare_at_price" gorm:"type:decimal(10,2)"`
-    CostPrice            *float64   `json:"cost_price" gorm:"type:decimal(10,2)"`
-    Stock                int        `json:"stock" gorm:"default:0"`
-    TrackInventory       bool       `json:"track_inventory" gorm:"default:true"`
-    AllowBackorders      bool       `json:"allow_backorders" gorm:"default:false"`
-    Weight               *float64   `json:"weight" gorm:"type:decimal(8,2)"`
-    Dimensions           string     `json:"dimensions" gorm:"type:jsonb"`
-    SkinType             string     `json:"skin_type" gorm:"type:skin_type;default:'all'"`
-    Category             string     `json:"category" gorm:"not null"`
-    SkinConcerns         []string   `json:"skin_concerns" gorm:"type:text[]"`
-    Ingredients          string     `json:"ingredients" gorm:"type:jsonb"`
-    UsageInstructions    string     `json:"usage_instructions"`
-    ImageURL             string     `json:"image_url"`
-    MetaTitle            string     `json:"meta_title"`
-    MetaDescription      string     `json:"meta_description"`
-    Status               string     `json:"status" gorm:"type:product_status;default:'active'"`
-    IsFeatured           bool       `json:"is_featured" gorm:"default:false"`
-    CreatedAt            time.Time  `json:"created_at" gorm:"type:date"`
-    UpdatedAt            time.Time  `json:"updated_at"`
-    PublishedAt          *time.Time `json:"published_at"`
-    
-    // Relationships
-    Images     []ProductImage    `json:"images,omitempty" gorm:"foreignKey:ProductID"`
-    Categories []Category        `json:"categories,omitempty" gorm:"many2many:product_categories"`
-    Reviews    []Review          `json:"reviews,omitempty" gorm:"foreignKey:ProductID"`
-    OrderItems []OrderItem       `json:"order_items,omitempty" gorm:"foreignKey:ProductID"`
-}
-
-// internal/models/order.go
-type Order struct {
-    ID                uint       `json:"id" gorm:"primaryKey"`
-    OrderNumber       string     `json:"order_number" gorm:"unique;not null"`
-    UserID            *uint      `json:"user_id"`
-    CustomerName      string     `json:"customer_name"`
-    CustomerEmail     string     `json:"customer_email" gorm:"not null"`
-    Subtotal          float64    `json:"subtotal" gorm:"type:decimal(10,2);not null"`
-    TaxAmount         float64    `json:"tax_amount" gorm:"type:decimal(10,2);default:0"`
-    ShippingAmount    float64    `json:"shipping_amount" gorm:"type:decimal(10,2);default:0"`
-    DiscountAmount    float64    `json:"discount_amount" gorm:"type:decimal(10,2);default:0"`
-    Total             float64    `json:"total" gorm:"type:decimal(10,2);not null"`
-    Status            string     `json:"status" gorm:"type:order_status;default:'pending'"`
-    PaymentStatus     string     `json:"payment_status" gorm:"type:payment_status;default:'pending'"`
-    FulfillmentStatus string     `json:"fulfillment_status" gorm:"type:fulfillment_status;default:'unfulfilled'"`
-    ShippingAddress   string     `json:"shipping_address" gorm:"type:jsonb"`
-    BillingAddress    string     `json:"billing_address" gorm:"type:jsonb"`
-    Notes             string     `json:"notes"`
-    TrackingNumber    string     `json:"tracking_number"`
-    CreatedAt         time.Time  `json:"created_at" gorm:"type:date"`
-    UpdatedAt         time.Time  `json:"updated_at"`
-    ShippedAt         *time.Time `json:"shipped_at"`
-    DeliveredAt       *time.Time `json:"delivered_at"`
-    
-    // Relationships
-    User       *User       `json:"user,omitempty" gorm:"foreignKey:UserID"`
-    Items      []OrderItem `json:"items,omitempty" gorm:"foreignKey:OrderID"`
-}
-
-// internal/models/order_item.go
-type OrderItem struct {
-    ID           uint      `json:"id" gorm:"primaryKey"`
-    OrderID      uint      `json:"order_id" gorm:"not null"`
-    ProductID    uint      `json:"product_id" gorm:"not null"`
-    ProductName  string    `json:"product_name" gorm:"not null"`
-    ProductSKU   string    `json:"product_sku"`
-    Quantity     int       `json:"quantity" gorm:"not null"`
-    UnitPrice    float64   `json:"unit_price" gorm:"type:decimal(10,2);not null"`
-    TotalPrice   float64   `json:"total_price" gorm:"type:decimal(10,2);not null"`
-    CreatedAt    time.Time `json:"created_at"`
-    
-    // Relationships
-    Order   Order   `json:"order,omitempty" gorm:"foreignKey:OrderID"`
-    Product Product `json:"product,omitempty" gorm:"foreignKey:ProductID"`
-}
-
-// internal/models/review.go
-type Review struct {
-    ID                  uint      `json:"id" gorm:"primaryKey"`
-    ProductID           uint      `json:"product_id" gorm:"not null"`
-    UserID              *uint     `json:"user_id"`
-    Rating              int       `json:"rating" gorm:"not null;check:rating >= 1 AND rating <= 5"`
-    Title               string    `json:"title"`
-    Comment             string    `json:"comment"`
-    CustomerName        string    `json:"customer_name"`
-    CustomerEmail       string    `json:"customer_email"`
-    Status              string    `json:"status" gorm:"type:review_status;default:'pending'"`
-    IsVerifiedPurchase  bool      `json:"is_verified_purchase" gorm:"default:false"`
-    HelpfulCount        int       `json:"helpful_count" gorm:"default:0"`
-    CreatedAt           time.Time `json:"created_at" gorm:"type:date"`
-    UpdatedAt           time.Time `json:"updated_at"`
-    
-    // Relationships
-    Product Product `json:"product,omitempty" gorm:"foreignKey:ProductID"`
-    User    *User   `json:"user,omitempty" gorm:"foreignKey:UserID"`
-}
-
-// internal/models/coupon.go
-type Coupon struct {
-    ID                   uint      `json:"id" gorm:"primaryKey"`
-    Code                 string    `json:"code" gorm:"unique;not null"`
-    Name                 string    `json:"name" gorm:"not null"`
-    Description          string    `json:"description"`
-    Type                 string    `json:"type" gorm:"type:coupon_type;not null"`
-    Value                float64   `json:"value" gorm:"type:decimal(10,2);not null"`
-    MaxDiscount          *float64  `json:"max_discount" gorm:"type:decimal(10,2)"`
-    UsageLimit           *int      `json:"usage_limit"`
-    UsedCount            int       `json:"used_count" gorm:"default:0"`
-    UsageLimitPerUser    int       `json:"usage_limit_per_user" gorm:"default:1"`
-    MinOrderValue        *float64  `json:"min_order_value" gorm:"type:decimal(10,2)"`
-    ApplicableProducts   []int     `json:"applicable_products" gorm:"type:integer[]"`
-    ApplicableCategories []string  `json:"applicable_categories" gorm:"type:text[]"`
-    Status               string    `json:"status" gorm:"type:coupon_status;default:'active'"`
-    IsFirstTimeOnly      bool      `json:"is_first_time_only" gorm:"default:false"`
-    StartDate            *time.Time `json:"start_date" gorm:"type:date"`
-    EndDate              *time.Time `json:"end_date" gorm:"type:date"`
-    CreatedAt            time.Time `json:"created_at" gorm:"type:date"`
-    UpdatedAt            time.Time `json:"updated_at"`
-    
-    // Relationships
-    Usage []CouponUsage `json:"usage,omitempty" gorm:"foreignKey:CouponID"`
-}
-
-// internal/models/category.go
-type Category struct {
-    ID          uint      `json:"id" gorm:"primaryKey"`
-    Name        string    `json:"name" gorm:"not null"`
-    Slug        string    `json:"slug" gorm:"unique;not null"`
-    Description string    `json:"description"`
-    ParentID    *uint     `json:"parent_id"`
-    ImageURL    string    `json:"image_url"`
-    IsActive    bool      `json:"is_active" gorm:"default:true"`
-    SortOrder   int       `json:"sort_order" gorm:"default:0"`
-    CreatedAt   time.Time `json:"created_at"`
-    UpdatedAt   time.Time `json:"updated_at"`
-    
-    // Relationships
-    Parent     *Category  `json:"parent,omitempty" gorm:"foreignKey:ParentID"`
-    Children   []Category `json:"children,omitempty" gorm:"foreignKey:ParentID"`
-    Products   []Product  `json:"products,omitempty" gorm:"many2many:product_categories"`
-}
-
-// internal/models/cart.go
-type ShoppingCart struct {
-    ID        uint      `json:"id" gorm:"primaryKey"`
-    UserID    uint      `json:"user_id" gorm:"not null"`
-    ProductID uint      `json:"product_id" gorm:"not null"`
-    Quantity  int       `json:"quantity" gorm:"not null;default:1"`
-    CreatedAt time.Time `json:"created_at"`
-    UpdatedAt time.Time `json:"updated_at"`
-    
-    // Relationships
-    User    User    `json:"user,omitempty" gorm:"foreignKey:UserID"`
-    Product Product `json:"product,omitempty" gorm:"foreignKey:ProductID"`
-}
-
-// internal/models/wishlist.go
-type Wishlist struct {
-    ID        uint      `json:"id" gorm:"primaryKey"`
-    UserID    uint      `json:"user_id" gorm:"not null"`
-    ProductID uint      `json:"product_id" gorm:"not null"`
-    CreatedAt time.Time `json:"created_at"`
-    
-    // Relationships
-    User    User    `json:"user,omitempty" gorm:"foreignKey:UserID"`
-    Product Product `json:"product,omitempty" gorm:"foreignKey:ProductID"`
-}
-
-// internal/models/user_address.go
-type UserAddress struct {
-    ID           uint      `json:"id" gorm:"primaryKey"`
-    UserID       uint      `json:"user_id" gorm:"not null"`
-    Type         string    `json:"type" gorm:"default:'shipping'"`
-    FirstName    string    `json:"first_name"`
-    LastName     string    `json:"last_name"`
-    Company      string    `json:"company"`
-    AddressLine1 string    `json:"address_line1" gorm:"not null"`
-    AddressLine2 string    `json:"address_line2"`
-    City         string    `json:"city" gorm:"not null"`
-    State        string    `json:"state"`
-    PostalCode   string    `json:"postal_code" gorm:"not null"`
-    Country      string    `json:"country" gorm:"not null"`
-    Phone        string    `json:"phone"`
-    IsDefault    bool      `json:"is_default" gorm:"default:false"`
-    CreatedAt    time.Time `json:"created_at"`
-    
-    // Relationships
-    User User `json:"user,omitempty" gorm:"foreignKey:UserID"`
-}
-
-// internal/models/product_image.go
-type ProductImage struct {
-    ID        uint      `json:"id" gorm:"primaryKey"`
-    ProductID uint      `json:"product_id" gorm:"not null"`
-    ImageURL  string    `json:"image_url" gorm:"not null"`
-    AltText   string    `json:"alt_text"`
-    SortOrder int       `json:"sort_order" gorm:"default:0"`
-    IsPrimary bool      `json:"is_primary" gorm:"default:false"`
-    CreatedAt time.Time `json:"created_at"`
-    
-    // Relationships
-    Product Product `json:"product,omitempty" gorm:"foreignKey:ProductID"`
-}
-
-// internal/models/coupon_usage.go
-type CouponUsage struct {
-    ID             uint      `json:"id" gorm:"primaryKey"`
-    CouponID       uint      `json:"coupon_id" gorm:"not null"`
-    UserID         *uint     `json:"user_id"`
-    OrderID        *uint     `json:"order_id"`
-    DiscountAmount float64   `json:"discount_amount" gorm:"type:decimal(10,2);not null"`
-    UsedAt         time.Time `json:"used_at"`
-    
-    // Relationships
-    Coupon Coupon `json:"coupon,omitempty" gorm:"foreignKey:CouponID"`
-    User   *User  `json:"user,omitempty" gorm:"foreignKey:UserID"`
-    Order  *Order `json:"order,omitempty" gorm:"foreignKey:OrderID"`
-}
-
-// internal/models/common.go
-type PaginationRequest struct {
-    Page     int    `json:"page" form:"page" validate:"min=1"`
-    Limit    int    `json:"limit" form:"limit" validate:"min=1,max=100"`
-    Sort     string `json:"sort" form:"sort"`
-    Order    string `json:"order" form:"order" validate:"oneof=asc desc"`
-    Search   string `json:"search" form:"search"`
-    Category string `json:"category" form:"category"`
-    Status   string `json:"status" form:"status"`
-}
-
-type PaginationResponse struct {
-    Data         interface{} `json:"data"`
-    CurrentPage  int         `json:"current_page"`
-    PerPage      int         `json:"per_page"`
-    TotalPages   int         `json:"total_pages"`
-    TotalItems   int64       `json:"total_items"`
-    HasNextPage  bool        `json:"has_next_page"`
-    HasPrevPage  bool        `json:"has_prev_page"`
-}
-
-type APIResponse struct {
-    Success bool        `json:"success"`
-    Message string      `json:"message"`
-    Data    interface{} `json:"data,omitempty"`
-    Error   interface{} `json:"error,omitempty"`
-}
-```
-
-## 🍃 MongoDB Collections Schema
-
-### 1. User Analytics Collection
+### 1. User Behavior Analytics (🎯 Primary ML Data Source)
 ```javascript
-// user_analytics
+// user_analytics - 🎯 Core ML training data
 {
   _id: ObjectId,
   user_id: Integer, // Links to PostgreSQL users.id
   session_id: String,
+  skin_profile: {
+    skin_type: String, // 'oily', 'dry', 'combination', 'sensitive', 'normal', 'acne', 'all'
+    concerns: [String], // ['acne', 'aging', 'dark_spots', 'hydration']
+    age_range: String,  // '18-25', '26-35', '36-45', '45+'
+    skin_goals: [String] // ['clear_skin', 'anti_aging', 'hydration']
+  },
   events: [
     {
-      event_type: String, // 'page_view', 'product_view', 'cart_add', 'purchase'
+      event_type: String, // 'page_view', 'product_view', 'cart_add', 'purchase', 'wishlist_add', 'search'
       event_data: {
         product_id: Integer,
         category: String,
         page_url: String,
+        search_query: String,
+        skin_type_filter: String,
+        price_range: {min: Number, max: Number},
+        duration_seconds: Number,
         timestamp: Date,
         metadata: Object
       }
@@ -902,533 +689,490 @@ type APIResponse struct {
   updated_at: Date
 }
 
+// 2. ML Recommendations Cache (🎯 Pre-computed ML results)
 // product_recommendations
 {
   _id: ObjectId,
   user_id: Integer, // Links to PostgreSQL users.id
-  recommendation_type: String, // 'collaborative', 'content_based', 'popular', 'skin_based'
+  recommendation_type: String, // 'collaborative', 'content_based', 'skin_based', 'hybrid'
   recommended_products: [
     {
       product_id: Integer, // Links to PostgreSQL products.id
-      score: Number,
-      reason: String,
+      score: Number, // 0.0 - 1.0 confidence score
+      reason: String, // "Users with acne skin type also bought", "Similar to your previous purchases"
+      algorithm_used: String, // 'collaborative_filtering', 'content_based', 'skin_analysis'
       generated_at: Date
     }
   ],
-  skin_profile: {
-    skin_type: String, // matches PostgreSQL skin_type enum
+  user_profile: {
+    skin_type: String, // Including 'acne' option
     concerns: [String],
     age_range: String,
     preferred_brands: [String],
     budget_range: {
       min: Number,
       max: Number
+    },
+    purchase_history_summary: {
+      total_orders: Number,
+      avg_order_value: Number,
+      favorite_categories: [String],
+      last_purchase_date: Date
     }
   },
+  model_version: String, // Track which ML model version generated this
   created_at: Date,
-  expires_at: Date
+  expires_at: Date // TTL for cache invalidation
 }
 
+// 3. Product Similarity Matrix (🎯 Content-based recommendations)
+// product_similarities  
+{
+  _id: ObjectId,
+  product_id: Integer, // Source product
+  similar_products: [
+    {
+      product_id: Integer,
+      similarity_score: Number, // 0.0 - 1.0
+      similarity_factors: {
+        category_match: Number,
+        skin_type_match: Number, 
+        concern_overlap: Number,
+        ingredient_similarity: Number,
+        price_similarity: Number
+      }
+    }
+  ],
+  computed_at: Date,
+  algorithm_version: String
+}
+
+// 4. User Purchase Patterns (🎯 Collaborative filtering data)
+// user_purchase_patterns
+{
+  _id: ObjectId,
+  user_id: Integer,
+  skin_type: String, // Including 'acne'
+  purchase_vector: {
+    // Product categories purchased with frequency
+    cleanser: Number,
+    moisturizer: Number,  
+    serum: Number,
+    toner: Number,
+    sunscreen: Number,
+    treatment: Number // For acne treatments
+  },
+  concern_preferences: {
+    acne: Number,        // 🆕 Acne concern weight
+    aging: Number,
+    hydration: Number,
+    brightening: Number,
+    sensitivity: Number
+  },
+  behavioral_features: {
+    avg_order_value: Number,
+    purchase_frequency_days: Number,
+    brand_loyalty_score: Number,
+    price_sensitivity: Number,
+    seasonal_patterns: Object
+  },
+  last_updated: Date
+}
+
+// 5. Search Analytics (🎯 Query understanding & recommendation improvement)
 // search_analytics
 {
   _id: ObjectId,
   user_id: Integer, // Optional, null for guest users
   search_query: String,
+  normalized_query: String, // Cleaned/stemmed version
+  intent_classification: {
+    category: String, // 'product_search', 'ingredient_search', 'concern_search'
+    confidence: Number,
+    extracted_entities: {
+      skin_type: String,
+      concerns: [String], 
+      ingredients: [String],
+      brands: [String],
+      price_range: Object
+    }
+  },
   filters_applied: {
     category: String,
-    skin_type: String,
-    price_range: {
-      min: Number,
-      max: Number
-    },
-    brands: [String]
+    skin_type: String, // Including 'acne'
+    price_range: {min: Number, max: Number},
+    brands: [String],
+    concerns: [String]
   },
   results_count: Number,
-  clicked_products: [Integer], // Product IDs that were clicked
+  clicked_products: [
+    {
+      product_id: Integer,
+      position: Number, // Position in search results
+      clicked_at: Date
+    }
+  ],
+  conversion_data: {
+    added_to_cart: [Integer], // Product IDs
+    purchased: [Integer]      // Product IDs  
+  },
   session_id: String,
   timestamp: Date,
   device_info: Object
 }
 
-// performance_metrics
+// 6. ML Model Performance Metrics (🎯 Model evaluation)
+// model_performance
 {
   _id: ObjectId,
-  date: Date,
+  model_name: String, // 'collaborative_filter_v1', 'content_based_v2'
+  model_version: String,
+  evaluation_date: Date,
   metrics: {
+    precision_at_k: {
+      k5: Number,
+      k10: Number,
+      k20: Number
+    },
+    recall_at_k: {
+      k5: Number, 
+      k10: Number,
+      k20: Number
+    },
+    ndcg_at_k: {
+      k5: Number,
+      k10: Number,
+      k20: Number
+    },
+    auc_score: Number,
+    coverage: Number,
+    diversity: Number
+  },
+  test_data_stats: {
     total_users: Number,
-    active_users: Number,
-    new_registrations: Number,
-    total_orders: Number,
-    revenue: Number,
-    avg_order_value: Number,
-    popular_products: [
+    total_products: Number,
+    total_interactions: Number,
+    skin_type_distribution: {
+      oily: Number,
+      dry: Number,
+      combination: Number, 
+      sensitive: Number,
+      normal: Number,
+      acne: Number,       // 🆕 Acne skin type metrics
+      all: Number
+    }
+  },
+  training_params: Object,
+  created_at: Date
+}
+
+// 7. Real-time Recommendation Events (🎯 Online learning feedback)
+// recommendation_feedback
+{
+  _id: ObjectId,
+  user_id: Integer,
+  recommendation_id: ObjectId, // Links to product_recommendations
+  product_id: Integer,
+  interaction_type: String, // 'view', 'click', 'cart_add', 'purchase', 'ignore'
+  feedback_score: Number, // Implicit feedback score
+  context: {
+    recommendation_position: Number,
+    page_type: String, // 'homepage', 'product_page', 'search_results'
+    session_id: String
+  },
+  timestamp: Date
+}
+
+// 8. Skin Analysis Results (🎯 Computer vision & skin recommendations)
+// skin_analysis_results
+{
+  _id: ObjectId,
+  user_id: Integer,
+  analysis_id: String,
+  uploaded_image_url: String,
+  analysis_results: {
+    detected_skin_type: String, // Including 'acne'
+    confidence_score: Number,
+    detected_concerns: [
       {
-        product_id: Integer,
-        views: Number,
-        purchases: Number
+        concern: String, // 'acne', 'dark_spots', 'wrinkles', 'dryness'
+        severity: String, // 'mild', 'moderate', 'severe'
+        confidence: Number,
+        affected_areas: [String] // ['forehead', 'cheeks', 'chin']
       }
     ],
-    popular_categories: [
-      {
-        category: String,
-        views: Number,
-        purchases: Number
-      }
-    ]
+    skin_tone: String,
+    texture_analysis: Object,
+    recommended_ingredients: [String],
+    products_to_avoid: [String]
   },
+  recommended_products: [
+    {
+      product_id: Integer,
+      reason: String,
+      priority: Number // 1 = highest priority
+    }
+  ],
+  analysis_version: String,
   created_at: Date
 }
 ```
 
-## 🚀 Redis Schema Design
+## 🔧 Updated Go Models with Profile Pictures
 
-### 1. User Sessions
-```
-Key: session:{session_id}
-Value: {
-  user_id: integer,
-  email: string,
-  role: string,
-  last_activity: timestamp
-}
-TTL: 24 hours
-```
-
-### 2. Shopping Cart Cache
-```
-Key: cart:{user_id}
-Value: [
-  {
-    product_id: integer,
-    quantity: integer,
-    added_at: timestamp,
-    product_data: {
-      name: string,
-      price: number,
-      image_url: string
-    }
-  }
-]
-TTL: 7 days
-```
-
-### 3. API Response Cache
-```
-Key: api:products:page:{page}:limit:{limit}:category:{category}
-Value: JSON response
-TTL: 15 minutes
-
-Key: api:product:{product_id}
-Value: JSON response
-TTL: 30 minutes
-
-Key: api:categories
-Value: JSON response
-TTL: 60 minutes
-```
-
-### 4. Rate Limiting
-```
-Key: rate_limit:api:{ip_address}
-Value: request_count
-TTL: 60 seconds
-
-Key: rate_limit:login:{ip_address}
-Value: attempt_count
-TTL: 900 seconds (15 minutes)
-```
-
-## 🔄 Complete API Endpoint Structure
-
-### Customer API Endpoints
 ```go
-// Authentication & User Management
-POST   /api/v1/auth/register
-POST   /api/v1/auth/login
-POST   /api/v1/auth/logout
-POST   /api/v1/auth/refresh
+// internal/models/user.go (🆕 Updated with profile_picture)
+type User struct {
+    ID                     uint       `json:"id" gorm:"primaryKey"`
+    Email                  string     `json:"email" gorm:"unique;not null"`
+    Password               string     `json:"-" gorm:"not null"`
+    FirstName              string     `json:"first_name"`
+    LastName               string     `json:"last_name"`
+    Phone                  string     `json:"phone"`
+    DateOfBirth            *time.Time `json:"date_of_birth" gorm:"type:date"`
+    Gender                 string     `json:"gender"`
+    SkinType               string     `json:"skin_type" gorm:"type:skin_type;default:'normal'"` // 🆕 Supports 'acne'
+    Language               string     `json:"language" gorm:"type:user_language;default:'en'"`
+    Role                   string     `json:"role" gorm:"type:user_role;default:'customer'"`
+    
+    // 🆕 Profile Picture Field
+    ProfilePicture         string     `json:"profile_picture"` // URL to uploaded image
+    
+    IsActive               bool       `json:"is_active" gorm:"default:true"`
+    EmailVerified          bool       `json:"email_verified" gorm:"default:false"`
+    EmailVerificationToken string     `json:"-"`
+    EmailVerifiedAt        *time.Time `json:"email_verified_at"`
+    PasswordResetToken     string     `json:"-"`
+    PasswordResetExpires   *time.Time `json:"-"`
+    TotalOrders            int        `json:"total_orders" gorm:"default:0"`
+    TotalSpent             float64    `json:"total_spent" gorm:"type:decimal(10,2);default:0"`
+    AvgRating              float64    `json:"avg_rating" gorm:"type:decimal(3,2);default:0"`
+    CreatedAt              time.Time  `json:"created_at"`
+    UpdatedAt              time.Time  `json:"updated_at"`
+    
+    // Relationships
+    Addresses    []UserAddress    `json:"addresses,omitempty" gorm:"foreignKey:UserID"`
+    Orders       []Order          `json:"orders,omitempty" gorm:"foreignKey:UserID"`
+    Reviews      []Review         `json:"reviews,omitempty" gorm:"foreignKey:UserID"`
+    CartItems    []ShoppingCart   `json:"cart_items,omitempty" gorm:"foreignKey:UserID"`
+    Wishlists    []Wishlist       `json:"wishlists,omitempty" gorm:"foreignKey:UserID"`
+}
+
+// DTO for profile picture upload
+type ProfilePictureUpload struct {
+    UserID uint   `json:"user_id" validate:"required"`
+    File   []byte `json:"file" validate:"required"`
+    FileExtension string `json:"file_extension" validate:"required,oneof=jpg jpeg png webp"`
+}
+
+type ProfilePictureResponse struct {
+    ProfilePicture string `json:"profile_picture"`
+    Message        string `json:"message"`
+}
+```
+
+## 🔄 Updated API Endpoints with Profile Pictures
+
+### Customer API Endpoints (🆕 Added profile picture endpoints)
+```go
+// Profile Management
 GET    /api/v1/auth/me
 PUT    /api/v1/auth/profile
-POST   /api/v1/auth/verify-email
-POST   /api/v1/auth/resend-verification
-POST   /api/v1/auth/forgot-password
-POST   /api/v1/auth/reset-password
-POST   /api/v1/auth/change-password
+POST   /api/v1/auth/profile/picture          // 🆕 Upload profile picture
+DELETE /api/v1/auth/profile/picture          // 🆕 Remove profile picture
+GET    /api/v1/auth/profile/picture          // 🆕 Get profile picture URL
 
-// User Addresses
-GET    /api/v1/user/addresses
-POST   /api/v1/user/addresses
-PUT    /api/v1/user/addresses/:id
-DELETE /api/v1/user/addresses/:id
-POST   /api/v1/user/addresses/:id/default
-
-// Products & Categories
-GET    /api/v1/products
-GET    /api/v1/products/search
-GET    /api/v1/products/featured
-GET    /api/v1/products/by-skin-type/:skin_type
-GET    /api/v1/products/:id
-GET    /api/v1/products/:id/reviews
-GET    /api/v1/products/:id/related
-GET    /api/v1/categories
-GET    /api/v1/categories/:slug/products
-
-// Shopping Cart
-GET    /api/v1/cart
-POST   /api/v1/cart/add
-PUT    /api/v1/cart/update/:product_id
-DELETE /api/v1/cart/remove/:product_id
-DELETE /api/v1/cart/clear
-POST   /api/v1/cart/apply-coupon
-DELETE /api/v1/cart/remove-coupon
-
-// Wishlist
-GET    /api/v1/wishlist
-POST   /api/v1/wishlist/add/:product_id
-DELETE /api/v1/wishlist/remove/:product_id
-DELETE /api/v1/wishlist/clear
-
-// Orders
-POST   /api/v1/orders
-GET    /api/v1/orders
-GET    /api/v1/orders/:id
-POST   /api/v1/orders/:id/cancel
-
-// Reviews
-POST   /api/v1/reviews
-PUT    /api/v1/reviews/:id
-DELETE /api/v1/reviews/:id
-GET    /api/v1/user/reviews
-
-// Coupons
-POST   /api/v1/coupons/validate
-GET    /api/v1/coupons/available
-
-// Recommendations (from ML service)
-GET    /api/v1/recommendations/products
-GET    /api/v1/recommendations/skin-analysis
+// File Upload
+POST   /api/v1/upload/profile-picture        // 🆕 Generic profile picture upload
+POST   /api/v1/upload/product-image          // Admin: Product image upload
 ```
 
-### Admin API Endpoints
+### Admin API Endpoints (🆕 Profile pictures for admins too)
 ```go
-// Admin Authentication
-POST   /api/v1/admin/login
-POST   /api/v1/admin/logout
-GET    /api/v1/admin/me
+// Admin Profile Management  
+GET    /api/v1/admin/profile
+PUT    /api/v1/admin/profile
+POST   /api/v1/admin/profile/picture         // 🆕 Admin profile picture
+DELETE /api/v1/admin/profile/picture         // 🆕 Remove admin profile picture
 
-// Dashboard & Analytics
-GET    /api/v1/admin/dashboard/stats
-GET    /api/v1/admin/dashboard/recent-orders
-GET    /api/v1/admin/dashboard/top-products
-GET    /api/v1/admin/analytics/sales
-GET    /api/v1/admin/analytics/customers
-GET    /api/v1/admin/analytics/products
-
-// Product Management
-GET    /api/v1/admin/products
-POST   /api/v1/admin/products
-GET    /api/v1/admin/products/:id
-PUT    /api/v1/admin/products/:id
-DELETE /api/v1/admin/products/:id
-POST   /api/v1/admin/products/bulk-update
-POST   /api/v1/admin/products/bulk-delete
-POST   /api/v1/admin/products/:id/images
-DELETE /api/v1/admin/products/:id/images/:image_id
-
-// Category Management
-GET    /api/v1/admin/categories
-POST   /api/v1/admin/categories
-GET    /api/v1/admin/categories/:id
-PUT    /api/v1/admin/categories/:id
-DELETE /api/v1/admin/categories/:id
-POST   /api/v1/admin/categories/reorder
-
-// Order Management
-GET    /api/v1/admin/orders
-GET    /api/v1/admin/orders/:id
-PUT    /api/v1/admin/orders/:id/status
-PUT    /api/v1/admin/orders/:id/payment-status
-PUT    /api/v1/admin/orders/:id/fulfillment-status
-POST   /api/v1/admin/orders/bulk-update
-POST   /api/v1/admin/orders/:id/refund
-POST   /api/v1/admin/orders/:id/ship
-
-// Customer Management
-GET    /api/v1/admin/customers
-GET    /api/v1/admin/customers/:id
-PUT    /api/v1/admin/customers/:id
-DELETE /api/v1/admin/customers/:id
-POST   /api/v1/admin/customers/:id/suspend
-POST   /api/v1/admin/customers/:id/activate
-GET    /api/v1/admin/customers/:id/orders
-GET    /api/v1/admin/customers/:id/reviews
-
-// Review Management
-GET    /api/v1/admin/reviews
-GET    /api/v1/admin/reviews/:id
-PUT    /api/v1/admin/reviews/:id/status
-DELETE /api/v1/admin/reviews/:id
-POST   /api/v1/admin/reviews/bulk-update
-POST   /api/v1/admin/reviews/bulk-approve
-POST   /api/v1/admin/reviews/bulk-reject
-
-// Coupon Management
-GET    /api/v1/admin/coupons
-POST   /api/v1/admin/coupons
-GET    /api/v1/admin/coupons/:id
-PUT    /api/v1/admin/coupons/:id
-DELETE /api/v1/admin/coupons/:id
-POST   /api/v1/admin/coupons/bulk-update
-GET    /api/v1/admin/coupons/:id/usage
-GET    /api/v1/admin/coupons/stats
-
-// User Address Management
-GET    /api/v1/admin/users/:id/addresses
-POST   /api/v1/admin/users/:id/addresses
-PUT    /api/v1/admin/users/:id/addresses/:address_id
-DELETE /api/v1/admin/users/:id/addresses/:address_id
+// Customer Management (🆕 View customer profile pictures)
+GET    /api/v1/admin/customers/:id/profile-picture
 ```
 
-## 🐍 Python ML Service API
+## 🐍 Updated Python ML Service (🎯 Dual Database Strategy)
 
+### ML Service Database Usage Strategy
 ```python
-# Recommendation endpoints
+# services/ml-service/app/database/dual_connector.py
+class DualDatabaseConnector:
+    """
+    🎯 ML Service uses BOTH PostgreSQL and MongoDB strategically:
+    
+    PostgreSQL (Source of Truth):
+    - User profiles, orders, products, reviews
+    - Real-time queries for fresh data
+    - Training data extraction
+    
+    MongoDB (ML Optimized):
+    - Pre-computed recommendations
+    - User behavior analytics  
+    - Model results caching
+    - Training data preprocessing
+    """
+    
+    def __init__(self):
+        self.postgres = PostgreSQLConnector()  # 🔵 Source data
+        self.mongodb = MongoDBConnector()      # 🟢 ML results & analytics
+    
+    async def get_user_training_data(self, user_id: int):
+        """🎯 Get training data from PostgreSQL"""
+        return await self.postgres.get_user_purchase_history(user_id)
+    
+    async def cache_recommendations(self, user_id: int, recommendations: list):
+        """🎯 Cache results in MongoDB"""
+        return await self.mongodb.store_recommendations(user_id, recommendations)
+    
+    async def get_cached_recommendations(self, user_id: int):
+        """🎯 Get cached results from MongoDB"""
+        return await self.mongodb.get_recommendations(user_id)
+
+# ML Training Pipeline (🎯 PostgreSQL → MongoDB)
+class MLTrainingPipeline:
+    async def extract_training_data(self):
+        """Extract from PostgreSQL for training"""
+        # Get user-product interactions
+        users = await self.postgres.query("""
+            SELECT u.id, u.skin_type, u.date_of_birth,
+                   oi.product_id, oi.quantity, o.created_at
+            FROM users u 
+            JOIN orders o ON u.id = o.user_id
+            JOIN order_items oi ON o.id = oi.order_id
+            WHERE u.skin_type IN ('oily', 'dry', 'combination', 'sensitive', 'normal', 'acne')
+            AND o.status = 'delivered'
+        """)
+        
+        # Store processed training data in MongoDB
+        await self.mongodb.store_training_data(users)
+        
+    async def train_skin_specific_model(self):
+        """🆕 Train model specifically for acne skin type"""
+        acne_users_data = await self.postgres.query("""
+            SELECT * FROM user_purchase_matrix 
+            WHERE skin_type = 'acne'
+        """)
+        
+        # Train and cache in MongoDB
+        model = self.train_collaborative_filter(acne_users_data)
+        await self.mongodb.store_model('acne_recommendations_v1', model)
+```
+
+### Updated ML API Endpoints (🎯 Skin Type Specific)
+```python
+# Recommendation endpoints (🆕 Acne-specific)
 GET    /ml/v1/recommendations/user/:user_id
-POST   /ml/v1/recommendations/user/:user_id/generate
-GET    /ml/v1/recommendations/product/:product_id/similar
-GET    /ml/v1/recommendations/popular
-GET    /ml/v1/recommendations/trending
-POST   /ml/v1/recommendations/skin-based
+POST   /ml/v1/recommendations/skin-type/acne      # 🆕 Acne-specific recommendations
+POST   /ml/v1/recommendations/skin-analysis       # 🆕 Upload photo for skin analysis
+GET    /ml/v1/recommendations/trending/acne       # 🆕 Trending acne products
 
-# Analytics endpoints
-POST   /ml/v1/analytics/track-event
-POST   /ml/v1/analytics/track-purchase
-GET    /ml/v1/analytics/user/:user_id/insights
-GET    /ml/v1/analytics/product/:product_id/stats
-GET    /ml/v1/analytics/search-trends
-GET    /ml/v1/analytics/performance-metrics
+# Analytics endpoints (🎯 Both databases)
+POST   /ml/v1/analytics/track-event              # Stores in MongoDB
+GET    /ml/v1/analytics/user/:user_id/skin-journey # PostgreSQL + MongoDB
+GET    /ml/v1/analytics/acne-products-performance  # 🆕 Acne product analytics
 
-# Skin analysis
-POST   /ml/v1/skin-analysis/analyze
-GET    /ml/v1/skin-analysis/recommendations/:user_id
-POST   /ml/v1/skin-analysis/feedback
-GET    /ml/v1/skin-analysis/products-by-concern
-
-# Search & Discovery
-POST   /ml/v1/search/products
-GET    /ml/v1/search/suggestions
-POST   /ml/v1/search/track-query
-GET    /ml/v1/search/trending-queries
-
-# Health checks
-GET    /ml/health
-GET    /ml/metrics
+# Skin analysis (🆕 Enhanced for acne detection)
+POST   /ml/v1/skin-analysis/detect-acne          # 🆕 Acne-specific analysis
+GET    /ml/v1/skin-analysis/acne-severity/:user_id # 🆕 Track acne progress
+POST   /ml/v1/skin-analysis/recommend-routine     # 🆕 Complete skincare routine
 ```
 
-## 🎯 Implementation Priority & Timeline
+## 🎯 ML Database Usage Summary
 
-### Phase 1: Foundation (Week 1-2)
-1. **✅ Database Setup**
-   - PostgreSQL schema implementation
-   - Redis configuration
-   - MongoDB setup
-   - Database migrations
+### 🔵 **PostgreSQL (Source Database for ML)**
+```sql
+-- 🎯 ML Training Queries Run on PostgreSQL:
 
-2. **✅ Go API Core**
-   - Project structure setup
-   - Database connections (PostgreSQL, Redis, MongoDB)
-   - Basic middleware (CORS, logging, validation)
-   - User authentication (register, login, JWT)
-   - Password reset functionality
+-- 1. User-Product Interaction Matrix (Collaborative Filtering)
+SELECT u.id, u.skin_type, oi.product_id, COUNT(*) as purchase_count
+FROM users u 
+JOIN orders o ON u.id = o.user_id  
+JOIN order_items oi ON o.id = oi.order_id
+WHERE u.skin_type = 'acne' AND o.status = 'delivered'
+GROUP BY u.id, u.skin_type, oi.product_id;
 
-3. **✅ Basic Product Management**
-   - Product CRUD operations
-   - Category management
-   - Basic search functionality
+-- 2. Product Features for Content-Based Filtering  
+SELECT id, category, skin_type, skin_concerns, price, avg_rating
+FROM product_rating_summary 
+WHERE skin_type IN ('acne', 'all');
 
-### Phase 2: E-commerce Core (Week 3-4)
-1. **✅ Shopping Features**
-   - Shopping cart (Redis-backed)
-   - Wishlist functionality
-   - User address management
-   - Order processing system
-
-2. **✅ Review System**
-   - Product reviews CRUD
-   - Review moderation
-   - Rating aggregation
-
-3. **✅ Admin Foundation**
-   - Admin authentication
-   - Basic admin dashboard
-   - Product management interface
-
-### Phase 3: Advanced Features (Week 5-6)
-1. **✅ Coupon System**
-   - Coupon creation and validation
-   - Usage tracking
-   - Bulk operations
-
-2. **✅ Admin Dashboard**
-   - Analytics and reporting
-   - Bulk operations for all entities
-   - Advanced filtering and search
-
-3. **✅ Performance & Caching**
-   - Redis caching implementation
-   - API response optimization
-   - Database query optimization
-
-### Phase 4: ML Integration (Week 7-8)
-1. **✅ Python ML Service**
-   - Service setup with FastAPI
-   - MongoDB integration
-   - Basic recommendation algorithms
-
-2. **✅ Analytics System**
-   - User behavior tracking
-   - Performance metrics collection
-   - Search analytics
-
-3. **✅ Recommendations**
-   - Collaborative filtering
-   - Content-based recommendations
-   - Skin type-based suggestions
-
-## 🛠️ Development Commands & Scripts
-
-```bash
-# Database setup
-make db-up          # Start databases (PostgreSQL, Redis, MongoDB)
-make db-migrate     # Run database migrations
-make db-seed        # Seed initial data
-make db-reset       # Reset and reseed database
-
-# Go service
-make api-dev        # Run API server in development mode
-make api-build      # Build API server binary
-make api-test       # Run API tests
-make api-lint       # Lint Go code
-
-# Python ML service
-make ml-dev         # Run ML service in development mode
-make ml-test        # Run ML service tests
-make ml-lint        # Lint Python code
-
-# Docker
-make docker-build   # Build all Docker images
-make docker-up      # Start all services with Docker
-make docker-logs    # View logs from all services
-
-# Database operations
-make migrate-up     # Run pending migrations
-make migrate-down   # Rollback one migration
-make migrate-create # Create new migration file
-
-# Testing
-make test-all       # Run all tests
-make test-unit      # Run unit tests only
-make test-integration # Run integration tests only
-
-# Deployment
-make deploy-staging # Deploy to staging
-make deploy-prod    # Deploy to production
+-- 3. User Skin Journey Analysis
+SELECT u.id, u.skin_type, u.date_of_birth,
+       MIN(o.created_at) as first_order,
+       MAX(o.created_at) as last_order,
+       COUNT(DISTINCT o.id) as total_orders
+FROM users u
+JOIN orders o ON u.id = o.user_id
+WHERE u.skin_type = 'acne'
+GROUP BY u.id, u.skin_type, u.date_of_birth;
 ```
 
-## 📋 Environment Configuration
+### 🟢 **MongoDB (ML Results & Analytics)**
+```javascript
+// 🎯 ML Results Stored in MongoDB:
 
-### Go API Service (.env)
-```bash
-# Server
-PORT=8080
-ENV=development
-API_VERSION=v1
+// 1. Store trained model predictions
+db.product_recommendations.insertOne({
+  user_id: 123,
+  skin_type: "acne", 
+  recommended_products: [
+    {product_id: 456, score: 0.89, reason: "Other acne users loved this"},
+    {product_id: 789, score: 0.82, reason: "Matches your skin concerns"}
+  ],
+  model_version: "acne_collaborative_v1"
+});
 
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=skincare_ecommerce
-DB_USER=postgres
-DB_PASSWORD=password
-DB_SSL_MODE=disable
+// 2. Cache user behavior for real-time personalization
+db.user_analytics.insertOne({
+  user_id: 123,
+  skin_profile: {skin_type: "acne", concerns: ["breakouts", "scarring"]},
+  recent_events: [
+    {event_type: "product_view", product_id: 456, timestamp: new Date()},
+    {event_type: "cart_add", product_id: 789, timestamp: new Date()}
+  ]
+});
 
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DB=0
-
-# MongoDB
-MONGO_URI=mongodb://localhost:27017
-MONGO_DATABASE=skincare_analytics
-
-# JWT
-JWT_SECRET=your-super-secret-jwt-key
-JWT_EXPIRES_IN=24h
-REFRESH_TOKEN_EXPIRES_IN=7d
-
-# Email
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
-FROM_EMAIL=noreply@skincare.com
-FROM_NAME=Skincare Store
-
-# File Upload
-MAX_FILE_SIZE=10MB
-UPLOAD_PATH=./uploads
-ALLOWED_FILE_TYPES=jpg,jpeg,png,webp
-
-# Rate Limiting
-RATE_LIMIT_REQUESTS=100
-RATE_LIMIT_WINDOW=60s
-
-# External Services
-ML_SERVICE_URL=http://localhost:8001
-PAYMENT_GATEWAY_URL=https://api.stripe.com
+// 3. Store skin analysis results
+db.skin_analysis_results.insertOne({
+  user_id: 123,
+  detected_skin_type: "acne",
+  confidence: 0.94,
+  detected_concerns: [
+    {concern: "inflammatory_acne", severity: "moderate", confidence: 0.91},
+    {concern: "post_acne_marks", severity: "mild", confidence: 0.76}
+  ]
+});
 ```
 
-### Python ML Service (.env)
-```bash
-# Server
-PORT=8001
-ENV=development
-DEBUG=true
+## 🏗️ **Final Architecture Summary**
 
-# Database
-POSTGRES_URI=postgresql://postgres:password@localhost:5432/skincare_ecommerce
-MONGO_URI=mongodb://localhost:27017
-MONGO_DATABASE=skincare_analytics
+### **Database Roles:**
+- **🔵 PostgreSQL**: Business logic, transactions, ML training data source
+- **🟢 MongoDB**: ML results, analytics, behavior tracking, model storage  
+- **🔴 Redis**: Sessions, caching, real-time cart data
 
-# Redis
-REDIS_URL=redis://localhost:6379/1
+### **ML Pipeline Flow:**
+1. **Extract** training data from PostgreSQL (users, orders, products, reviews)
+2. **Transform** data and train ML models (Python service)
+3. **Load** model results into MongoDB (recommendations, analytics)
+4. **Serve** recommendations from MongoDB cache (fast API responses)
+5. **Update** PostgreSQL with user actions (purchases, ratings)
+6. **Retrain** models periodically with fresh PostgreSQL data
 
-# ML Models
-MODEL_PATH=./models
-RECOMMENDATION_MODEL_VERSION=1.0
-SKIN_ANALYSIS_MODEL_VERSION=1.0
+### **Key Updates Made:**
+✅ **Added 'acne' to skin_type enum** - Now supports 6 skin types  
+✅ **Added profile_picture field** - Both users and admins can upload photos  
+✅ **Enhanced MongoDB schema** - ML-optimized collections with acne-specific support  
+✅ **Clarified database roles** - PostgreSQL for source data, MongoDB for ML results  
+✅ **Added file upload system** - Complete image handling infrastructure  
+✅ **ML-specific indexes** - Optimized for training queries and recommendations  
 
-# API Keys
-OPENAI_API_KEY=your-openai-key
-GOOGLE_VISION_API_KEY=your-google-vision-key
-
-# Performance
-WORKER_PROCESSES=4
-MAX_REQUESTS=1000
-REQUEST_TIMEOUT=30
-```
-
-This complete backend structure provides:
-
-✅ **Production-Ready Database Schema** - Matches your mockApi perfectly
-✅ **Scalable Go API Server** - Clean architecture with proper separation of concerns  
-✅ **Python ML Service** - For recommendations and analytics
-✅ **Multi-Database Strategy** - PostgreSQL, Redis, MongoDB for optimal performance
-✅ **Complete API Coverage** - Customer and admin endpoints
-✅ **Development Tools** - Migrations, seeds, tests, Docker setup
-✅ **Khmer Language Support** - Ready for your target market
-✅ **Skincare-Specific Features** - Skin types, concerns, ingredients
-✅ **E-commerce Complete** - Orders, carts, reviews, coupons, wishlists
-
-The structure is ready for immediate implementation and can scale as your business grows!
+Your backend is now **fully equipped** for a skincare e-commerce platform with advanced ML capabilities and proper support for acne skin type and profile pictures! 🚀
