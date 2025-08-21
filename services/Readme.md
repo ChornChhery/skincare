@@ -332,29 +332,138 @@ skincare-ecommerce-backend/
 -- SKINCARE E-COMMERCE DATABASE SCHEMA (FINAL ENHANCED VERSION)
 -- =============================================
 
--- Create ENUM types first (🆕 UPDATED with 'acne' skin type + new feedback types)
-CREATE TYPE user_role AS ENUM ('customer', 'admin', 'moderator', 'expert'); -- 🆕 Added 'expert'
+-- Create ENUM types first (Updated with new file-related enums)
+CREATE TYPE user_role AS ENUM ('customer', 'admin', 'moderator', 'expert');
 CREATE TYPE user_language AS ENUM ('en', 'kh');
-CREATE TYPE skin_type AS ENUM ('oily', 'dry', 'combination', 'sensitive', 'normal', 'acne', 'all'); -- 🆕 Added 'acne'
+CREATE TYPE skin_type AS ENUM ('oily', 'dry', 'combination', 'sensitive', 'normal', 'acne', 'all');
 CREATE TYPE product_status AS ENUM ('draft', 'active', 'archived');
 CREATE TYPE order_status AS ENUM ('pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded');
 CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'partially_paid', 'refunded', 'partially_refunded', 'failed');
 CREATE TYPE fulfillment_status AS ENUM ('unfulfilled', 'partial', 'fulfilled', 'shipped', 'delivered');
-CREATE TYPE review_status AS ENUM ('pending', 'approved', 'rejected', 'flagged'); -- 🆕 Added 'flagged'
+CREATE TYPE review_status AS ENUM ('pending', 'approved', 'rejected', 'flagged');
 CREATE TYPE coupon_type AS ENUM ('percentage', 'fixed', 'free_shipping');
 CREATE TYPE coupon_status AS ENUM ('active', 'inactive', 'expired');
-
--- 🆕 New feedback-specific enums
 CREATE TYPE feedback_status AS ENUM ('pending', 'approved', 'rejected', 'flagged', 'hidden');
 CREATE TYPE progress_status AS ENUM ('ongoing', 'completed', 'abandoned');
 CREATE TYPE moderation_status AS ENUM ('pending', 'approved', 'rejected', 'needs_review');
 CREATE TYPE usage_frequency AS ENUM ('daily', 'twice_daily', 'weekly', '2-3_times_week', 'as_needed');
 
+-- 🆕 New file-related enums
+CREATE TYPE file_status AS ENUM ('uploading', 'processing', 'active', 'deleted', 'failed');
+CREATE TYPE media_type AS ENUM ('image', 'video', 'document', 'audio');
+CREATE TYPE virus_scan_status AS ENUM ('pending', 'clean', 'infected', 'failed', 'skipped');
+
+-- =============================================
+-- ENHANCED FILE UPLOAD SYSTEM (CORE)
+-- =============================================
+
+-- 🆕 Centralized File Storage Table
+CREATE TABLE uploaded_files (
+    id SERIAL PRIMARY KEY,
+    
+    -- File identification
+    filename VARCHAR(255) NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,        -- Local file path or cloud storage key
+    file_url VARCHAR(500) NOT NULL,         -- Public URL
+    
+    -- File metadata
+    file_size BIGINT NOT NULL CHECK (file_size > 0),
+    mime_type VARCHAR(100) NOT NULL,
+    file_extension VARCHAR(10) NOT NULL,
+    media_type media_type NOT NULL,
+    
+    -- Image-specific metadata (for images only)
+    image_width INTEGER CHECK (image_width > 0),
+    image_height INTEGER CHECK (image_height > 0),
+    image_thumbnails JSONB,                 -- {"small": "thumb_small.jpg", "medium": "thumb_med.jpg"}
+    dominant_colors JSONB,                  -- ["#FF5733", "#C70039"] for UI theming
+    
+    -- Upload context and relationships
+    uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    upload_context VARCHAR(50) NOT NULL,    -- 'profile', 'product', 'review', 'progress', 'qa'
+    related_entity_type VARCHAR(50),        -- 'user', 'product', 'review', 'progress', 'question', 'answer'
+    related_entity_id INTEGER,
+    
+    -- File status and processing
+    status file_status DEFAULT 'uploading',
+    is_processed BOOLEAN DEFAULT false,     -- For image processing/resizing completion
+    processing_error TEXT,                  -- Error message if processing failed
+    is_public BOOLEAN DEFAULT true,
+    is_temporary BOOLEAN DEFAULT false,     -- For temp uploads during multi-step processes
+    
+    -- Security and validation
+    virus_scan_status virus_scan_status DEFAULT 'pending',
+    virus_scan_result TEXT,                 -- Details from virus scanner
+    content_hash VARCHAR(64) UNIQUE,        -- SHA-256 hash for duplicate detection
+    
+    -- Cloud storage integration (optional)
+    cloud_provider VARCHAR(20),             -- 'aws', 'gcp', 'azure', 'local'
+    cloud_bucket VARCHAR(100),
+    cloud_region VARCHAR(50),
+    
+    -- Timestamps and expiration
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    processed_at TIMESTAMP,                 -- When file processing completed
+    expires_at TIMESTAMP,                   -- For temporary files
+    deleted_at TIMESTAMP                    -- Soft delete timestamp
+);
+
+-- 🆕 File Upload Configuration Table
+CREATE TABLE file_upload_configs (
+    id SERIAL PRIMARY KEY,
+    
+    -- Upload context
+    context VARCHAR(50) UNIQUE NOT NULL,    -- 'profile', 'product', 'review', 'progress', 'qa'
+    description TEXT,
+    
+    -- File restrictions
+    max_file_size BIGINT NOT NULL,          -- Maximum file size in bytes
+    allowed_mime_types TEXT[] NOT NULL,     -- ['image/jpeg', 'image/png', 'image/gif']
+    allowed_extensions TEXT[] NOT NULL,     -- ['jpg', 'jpeg', 'png', 'gif']
+    
+    -- Image-specific restrictions
+    max_width INTEGER,                      -- Maximum image width in pixels
+    max_height INTEGER,                     -- Maximum image height in pixels
+    min_width INTEGER,                      -- Minimum image width in pixels
+    min_height INTEGER,                     -- Minimum image height in pixels
+    aspect_ratio_restrictions JSONB,        -- {"min": 0.5, "max": 2.0} width/height ratio
+    
+    -- Upload limits per user/context
+    max_files_per_upload INTEGER DEFAULT 1,
+    max_files_per_user INTEGER,            -- Total files per user in this context
+    max_total_size_per_user BIGINT,        -- Total storage limit per user
+    
+    -- Processing options
+    create_thumbnails BOOLEAN DEFAULT true,
+    thumbnail_sizes JSONB DEFAULT '{"small": [150,150], "medium": [300,300]}',
+    compress_images BOOLEAN DEFAULT true,
+    compression_quality INTEGER DEFAULT 80 CHECK (compression_quality BETWEEN 1 AND 100),
+    convert_to_webp BOOLEAN DEFAULT false,  -- Convert images to WebP for better compression
+    
+    -- Storage and access options
+    storage_path VARCHAR(255) NOT NULL,     -- Relative storage path
+    is_public BOOLEAN DEFAULT true,
+    require_authentication BOOLEAN DEFAULT false,
+    enable_direct_upload BOOLEAN DEFAULT false, -- Allow direct upload to cloud storage
+    
+    -- Security and validation
+    require_virus_scan BOOLEAN DEFAULT false,
+    auto_approve BOOLEAN DEFAULT true,
+    enable_watermark BOOLEAN DEFAULT false,
+    watermark_text VARCHAR(100),
+    
+    -- Timestamps
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
 -- =============================================
 -- 1. USERS & AUTHENTICATION DOMAIN (🆕 UPDATED)
 -- =============================================
 
--- Main users table (🆕 Added profile_picture field + expert role)
+-- Main users table (Enhanced with file references)
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -364,14 +473,16 @@ CREATE TABLE users (
     phone VARCHAR(20),
     date_of_birth DATE,
     gender VARCHAR(10) CHECK (gender IN ('male', 'female', 'other')),
-    skin_type skin_type DEFAULT 'normal',                -- 🆕 Can now include 'acne'
+    skin_type skin_type DEFAULT 'normal',
     language user_language DEFAULT 'en',
-    role user_role DEFAULT 'customer',                   -- 🆕 Can include 'expert'
+    role user_role DEFAULT 'customer',
     
-    -- 🆕 Profile Picture & Bio (for experts and engaged users)
-    profile_picture VARCHAR(500),                        -- 🆕 URL to profile image
-    bio TEXT,                                           -- 🆕 User bio (especially for experts)
-    expertise_areas TEXT[],                             -- 🆕 For expert users ["acne", "anti-aging"]
+    -- Enhanced Profile Media (File References + URL Fallback)
+    profile_picture_file_id INTEGER REFERENCES uploaded_files(id) ON DELETE SET NULL,
+    profile_banner_file_id INTEGER REFERENCES uploaded_files(id) ON DELETE SET NULL,
+    profile_picture VARCHAR(500),           -- Fallback URL for external images
+    bio TEXT,
+    expertise_areas TEXT[],                 -- For expert users ["acne", "anti-aging"]
     
     -- Account status
     is_active BOOLEAN DEFAULT true,
@@ -379,28 +490,30 @@ CREATE TABLE users (
     email_verification_token VARCHAR(255),
     email_verified_at TIMESTAMP,
     
-    -- Password reset (forgot password functionality)
+    -- Password reset
     password_reset_token VARCHAR(255),
     password_reset_expires TIMESTAMP,
     
-    -- User statistics (matching mockApi)
+    -- User statistics
     total_orders INTEGER DEFAULT 0,
     total_spent DECIMAL(10,2) DEFAULT 0,
     avg_rating DECIMAL(3,2) DEFAULT 0,
     
-    -- 🆕 Engagement & Community Stats
+    -- Enhanced engagement and community stats
     reviews_written INTEGER DEFAULT 0,
     helpful_votes_received INTEGER DEFAULT 0,
     questions_asked INTEGER DEFAULT 0,
     answers_provided INTEGER DEFAULT 0,
-    community_score INTEGER DEFAULT 0,                  -- 🆕 Engagement score
+    community_score INTEGER DEFAULT 0,
+    files_uploaded INTEGER DEFAULT 0,       -- 🆕 Track file uploads
+    storage_used BIGINT DEFAULT 0,          -- 🆕 Track storage usage in bytes
     
     -- Timestamps
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- User addresses (unchanged)
+-- User addresses 
 CREATE TABLE user_addresses (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -426,6 +539,7 @@ CREATE TABLE user_addresses (
 -- 2. CATEGORIES & PRODUCTS DOMAIN
 -- =============================================
 
+
 -- Product categories (hierarchical)
 CREATE TABLE categories (
     id SERIAL PRIMARY KEY,
@@ -433,14 +547,19 @@ CREATE TABLE categories (
     slug VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
     parent_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-    image_url VARCHAR(500),
+    
+    -- Enhanced media support
+    image_file_id INTEGER REFERENCES uploaded_files(id) ON DELETE SET NULL,
+    image_url VARCHAR(500),                 -- Fallback URL
+    banner_file_id INTEGER REFERENCES uploaded_files(id) ON DELETE SET NULL, -- 🆕 Category banner
+    
     is_active BOOLEAN DEFAULT true,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Main products table (🆕 Updated to work with 'acne' skin type)
+-- Main products table (Enhanced)
 CREATE TABLE products (
     id SERIAL PRIMARY KEY,
     name_en VARCHAR(255) NOT NULL,
@@ -452,12 +571,12 @@ CREATE TABLE products (
     sku VARCHAR(100) UNIQUE NOT NULL,
     barcode VARCHAR(100),
     
-    -- Pricing (matching mockApi)
-    price DECIMAL(10,2) NOT NULL,
-    compare_at_price DECIMAL(10,2),
+    -- Pricing
+    price DECIMAL(10,2) NOT NULL CHECK (price > 0),
+    compare_at_price DECIMAL(10,2) CHECK (compare_at_price IS NULL OR compare_at_price >= price),
     cost_price DECIMAL(10,2),
     
-    -- Inventory (matching mockApi stock field)
+    -- Inventory
     stock INTEGER DEFAULT 0,
     track_inventory BOOLEAN DEFAULT true,
     allow_backorders BOOLEAN DEFAULT false,
@@ -466,24 +585,23 @@ CREATE TABLE products (
     weight DECIMAL(8,2),
     dimensions JSONB,
     
-    -- Skincare specific (🆕 Now supports 'acne' skin type)
-    skin_type skin_type DEFAULT 'all',                   -- 🆕 Includes 'acne' option
+    -- Skincare specific
+    skin_type skin_type DEFAULT 'all',
     category VARCHAR(50) NOT NULL,
-    skin_concerns TEXT[],                                -- 🆕 Can include 'acne' concern
+    skin_concerns TEXT[],
     ingredients JSONB,
     usage_instructions TEXT,
-    
-    -- 🆕 Enhanced Product Information
-    key_benefits TEXT[],                                -- ["reduces_acne", "hydrates"]
+    key_benefits TEXT[],
     how_to_use TEXT,
-    when_to_use TEXT,                                   -- "morning", "evening", "both"
-    product_type VARCHAR(50),                           -- "serum", "cleanser", "moisturizer"
+    when_to_use TEXT,
+    product_type VARCHAR(50),
     suitable_for_sensitive_skin BOOLEAN DEFAULT false,
     dermatologist_tested BOOLEAN DEFAULT false,
     cruelty_free BOOLEAN DEFAULT false,
     
-    -- Media (matching mockApi)
-    image_url VARCHAR(500),
+    -- Enhanced Media (File Reference + URL Fallback)
+    main_image_file_id INTEGER REFERENCES uploaded_files(id) ON DELETE SET NULL,
+    image_url VARCHAR(500),                 -- Fallback URL for external images
     
     -- SEO & Marketing
     meta_title VARCHAR(255),
@@ -491,13 +609,13 @@ CREATE TABLE products (
     status product_status DEFAULT 'active',
     is_featured BOOLEAN DEFAULT false,
     
-    -- 🆕 Product Analytics (calculated fields)
+    -- Product analytics
     total_reviews INTEGER DEFAULT 0,
     avg_rating DECIMAL(3,2) DEFAULT 0,
     total_sales INTEGER DEFAULT 0,
     view_count INTEGER DEFAULT 0,
     
-    -- Timestamps (matching mockApi)
+    -- Timestamps
     created_at DATE DEFAULT CURRENT_DATE,
     updated_at TIMESTAMP DEFAULT NOW(),
     published_at TIMESTAMP
@@ -510,16 +628,36 @@ CREATE TABLE product_categories (
     PRIMARY KEY (product_id, category_id)
 );
 
--- Additional product images
-CREATE TABLE product_images (
+-- 🆕 Enhanced Product Media (replaces simple product_images table)
+CREATE TABLE product_media (
     id SERIAL PRIMARY KEY,
     product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
-    image_url VARCHAR(500) NOT NULL,
+    file_id INTEGER REFERENCES uploaded_files(id) ON DELETE CASCADE,
+    
+    -- Media classification
+    media_purpose VARCHAR(30) DEFAULT 'gallery', -- 'main', 'gallery', 'variant', 'instruction', 'ingredient', 'before_after'
+    variant_attributes JSONB,               -- {"color": "blue", "size": "50ml"} for product variants
+    
+    -- Display properties
     alt_text VARCHAR(255),
+    caption TEXT,
     sort_order INTEGER DEFAULT 0,
     is_primary BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT NOW()
+    
+    -- Context and usage
+    usage_context VARCHAR(50),              -- 'product_page', 'thumbnail', 'zoom', 'instruction'
+    display_conditions JSONB,               -- Conditions when to show this media
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    
+    -- Ensure only one primary image per product
+    CONSTRAINT unique_primary_per_product UNIQUE (product_id, is_primary) DEFERRABLE INITIALLY DEFERRED
 );
+
+-- Add constraint to allow only one primary image (with proper handling)
+CREATE UNIQUE INDEX idx_product_media_primary_unique 
+ON product_media(product_id) 
+WHERE is_primary = true;
 
 -- =============================================
 -- 3. ORDERS & TRANSACTIONS DOMAIN
@@ -593,40 +731,40 @@ CREATE TABLE shopping_cart (
 -- 4. ENHANCED REVIEWS & FEEDBACK SYSTEM
 -- =============================================
 
--- 🆕 Comprehensive Product Reviews (Enhanced)
+-- 🆕 Enhanced Product Reviews with File Integration
 CREATE TABLE product_reviews (
     id SERIAL PRIMARY KEY,
     product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    order_item_id INTEGER REFERENCES order_items(id) ON DELETE SET NULL, -- Link to purchase
+    order_item_id INTEGER REFERENCES order_items(id) ON DELETE SET NULL,
     
     -- Basic Review Data
     rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
     title VARCHAR(255),
     review_text TEXT,
     
-    -- 🆕 Skincare-Specific Feedback
-    skin_type_at_review skin_type, -- User's skin type when reviewing
-    usage_duration INTEGER, -- Days used before review
+    -- Skincare-Specific Feedback
+    skin_type_at_review skin_type,
+    usage_duration INTEGER CHECK (usage_duration >= 0),
     visible_results BOOLEAN DEFAULT false,
     would_recommend BOOLEAN DEFAULT true,
     
-    -- 🆕 Detailed Skincare Ratings (1-5 scale each)
+    -- Detailed Skincare Ratings (1-5 scale each)
     effectiveness_rating INTEGER CHECK (effectiveness_rating BETWEEN 1 AND 5),
     texture_rating INTEGER CHECK (texture_rating BETWEEN 1 AND 5),
     scent_rating INTEGER CHECK (scent_rating BETWEEN 1 AND 5),
     packaging_rating INTEGER CHECK (packaging_rating BETWEEN 1 AND 5),
     value_for_money_rating INTEGER CHECK (value_for_money_rating BETWEEN 1 AND 5),
     
-    -- 🆕 Before/After Experience
-    skin_condition_before TEXT, -- "Frequent breakouts, oily T-zone"
-    skin_condition_after TEXT,  -- "Clearer skin, less oily"
-    side_effects TEXT,          -- "Slight dryness initially"
+    -- Before/After Experience
+    skin_condition_before TEXT,
+    skin_condition_after TEXT,
+    side_effects TEXT,
     
-    -- 🆕 Usage & Application
-    how_often_used usage_frequency, -- 'daily', 'twice_daily', etc.
-    application_method TEXT,    -- "Applied to damp skin, massaged gently"
-    used_with_other_products JSONB, -- [{"product_id": 123, "product_name": "Moisturizer"}]
+    -- Usage & Application
+    how_often_used usage_frequency,
+    application_method TEXT,
+    used_with_other_products JSONB,
     
     -- Review Metadata
     is_verified_purchase BOOLEAN DEFAULT false,
@@ -635,45 +773,77 @@ CREATE TABLE product_reviews (
     total_votes_count INTEGER DEFAULT 0,
     status review_status DEFAULT 'pending',
     
-    -- 🆕 Media Attachments
-    photos JSONB, -- ["before_photo.jpg", "after_photo.jpg", "product_photo.jpg"]
-    video_url VARCHAR(500), -- Optional video review
+    -- 🆕 Media Support (now handled through separate table)
+    has_photos BOOLEAN DEFAULT false,       -- Quick reference for queries
+    has_video BOOLEAN DEFAULT false,        -- Quick reference for queries
+    media_count INTEGER DEFAULT 0,          -- Quick reference for queries
     
-    -- 🆕 AI Analysis (populated by ML service)
-    sentiment_score DECIMAL(3,2), -- -1.0 to 1.0
-    sentiment_label VARCHAR(20), -- 'positive', 'negative', 'neutral'
-    extracted_topics JSONB, -- AI-extracted topics from review text
+    -- AI Analysis
+    sentiment_score DECIMAL(3,2) CHECK (sentiment_score BETWEEN -1 AND 1),
+    sentiment_label VARCHAR(20) CHECK (sentiment_label IN ('positive', 'negative', 'neutral')),
+    extracted_topics JSONB,
     
     -- Timestamps
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- 🆕 Review Helpfulness Votes (Users can vote if review was helpful)
+-- 🆕 Review Media (handles review photos/videos with file references)
+CREATE TABLE review_media (
+    id SERIAL PRIMARY KEY,
+    review_id INTEGER REFERENCES product_reviews(id) ON DELETE CASCADE,
+    file_id INTEGER REFERENCES uploaded_files(id) ON DELETE CASCADE,
+    
+    -- Photo/Video context
+    media_type VARCHAR(20) NOT NULL CHECK (media_type IN ('photo', 'video')),
+    photo_type VARCHAR(20), -- 'before', 'after', 'during', 'product_shot', 'packaging', 'texture'
+    photo_context TEXT,     -- Description: "After 4 weeks of use - morning light"
+    
+    -- Skincare specific context
+    skin_area VARCHAR(30),  -- 'face', 'forehead', 'cheeks', 'full_face', 'problem_area', 'texture_closeup'
+    lighting_condition VARCHAR(20), -- 'natural', 'indoor', 'flash', 'ring_light'
+    timeline_context VARCHAR(50),   -- 'baseline', 'week_1', 'week_4', 'final_results'
+    
+    -- Timeline and usage
+    days_of_usage INTEGER CHECK (days_of_usage >= 0),
+    
+    -- Display properties
+    sort_order INTEGER DEFAULT 0,
+    is_featured BOOLEAN DEFAULT false,      -- Featured photo for the review
+    
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Review Helpfulness Votes
 CREATE TABLE review_votes (
     id SERIAL PRIMARY KEY,
     review_id INTEGER REFERENCES product_reviews(id) ON DELETE CASCADE,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     vote_type VARCHAR(10) CHECK (vote_type IN ('helpful', 'unhelpful')),
     created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(review_id, user_id) -- One vote per user per review
+    UNIQUE(review_id, user_id)
 );
 
--- 🆕 Skincare Progress Tracking (Long-term feedback)
+-- 🆕 Enhanced Skincare Progress Tracking with File Integration
 CREATE TABLE skincare_progress (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
     
-    -- Progress Tracking
-    week_number INTEGER NOT NULL, -- Week 1, 2, 3, etc.
-    progress_photo VARCHAR(500), -- Photo URL
+    -- Progress Timeline
+    week_number INTEGER NOT NULL CHECK (week_number > 0 AND week_number <= 52),
+    progress_date DATE DEFAULT CURRENT_DATE,
+    
+    -- Progress Notes and Observations
     skin_condition_notes TEXT,
+    application_notes TEXT,                 -- How user applied the product this week
+    lifestyle_factors TEXT,                 -- Diet, stress, other factors affecting skin
     
     -- Weekly Ratings
     overall_satisfaction INTEGER CHECK (overall_satisfaction BETWEEN 1 AND 5),
     skin_improvement INTEGER CHECK (skin_improvement BETWEEN 1 AND 5),
-    side_effects_severity INTEGER CHECK (side_effects_severity BETWEEN 0 AND 5), -- 0 = none
+    side_effects_severity INTEGER CHECK (side_effects_severity BETWEEN 0 AND 5),
+    product_experience INTEGER CHECK (product_experience BETWEEN 1 AND 5), -- Texture, application, etc.
     
     -- Specific Improvements (Boolean tracking)
     acne_reduced BOOLEAN DEFAULT false,
@@ -682,25 +852,62 @@ CREATE TABLE skincare_progress (
     redness_reduced BOOLEAN DEFAULT false,
     pores_minimized BOOLEAN DEFAULT false,
     brightness_improved BOOLEAN DEFAULT false,
-    scarring_reduced BOOLEAN DEFAULT false, -- 🆕 For acne scars
-    oil_control_improved BOOLEAN DEFAULT false, -- 🆕 For oily/acne skin
+    scarring_reduced BOOLEAN DEFAULT false,
+    oil_control_improved BOOLEAN DEFAULT false,
+    fine_lines_reduced BOOLEAN DEFAULT false, -- 🆕 Anti-aging tracking
+    
+    -- 🆕 Media Support (now handled through separate table)
+    has_photos BOOLEAN DEFAULT false,
+    photo_count INTEGER DEFAULT 0,
     
     -- Progress Status
     status progress_status DEFAULT 'ongoing',
+    completion_notes TEXT,                  -- Final notes when marked complete
     
     created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    
     UNIQUE(user_id, product_id, week_number)
 );
 
--- 🆕 Product Questions & Answers System
+-- 🆕 Progress Media (handles progress photos with file references)
+CREATE TABLE progress_media (
+    id SERIAL PRIMARY KEY,
+    progress_id INTEGER REFERENCES skincare_progress(id) ON DELETE CASCADE,
+    file_id INTEGER REFERENCES uploaded_files(id) ON DELETE CASCADE,
+    
+    -- Progress Photo Context
+    photo_type VARCHAR(20) DEFAULT 'progress' CHECK (photo_type IN ('progress', 'side_effect', 'baseline', 'comparison')),
+    skin_area VARCHAR(30),     -- 'face', 'forehead', 'cheeks', 'chin', 'nose', 'under_eyes', 'full_face'
+    angle VARCHAR(20),         -- 'front', 'left_side', 'right_side', 'closeup', 'wide'
+    lighting_condition VARCHAR(20) CHECK (lighting_condition IN ('natural', 'indoor', 'flash', 'consistent_setup')),
+    
+    -- Photo Quality and Consistency (for better progress tracking)
+    photo_quality_score INTEGER CHECK (photo_quality_score BETWEEN 1 AND 5), -- User self-assessment
+    lighting_consistency BOOLEAN DEFAULT false, -- Whether lighting is consistent with previous photos
+    angle_consistency BOOLEAN DEFAULT false,    -- Whether angle matches previous photos
+    
+    -- Notes and Context
+    photo_notes TEXT,          -- User notes about this specific photo
+    comparison_notes TEXT,     -- How this compares to previous photos
+    
+    -- Display properties
+    sort_order INTEGER DEFAULT 0,
+    is_featured BOOLEAN DEFAULT false, -- Featured photo for this week's progress
+    
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 🆕 Product Questions & Answers System (Enhanced)
 CREATE TABLE product_questions (
     id SERIAL PRIMARY KEY,
     product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     
     question TEXT NOT NULL,
-    skin_type_context skin_type, -- User's skin type for context
-    age_range VARCHAR(20), -- "25-30", helpful for age-related questions
+    skin_type_context skin_type,
+    age_range VARCHAR(20),     -- "25-30", "30-35", etc.
+    skin_concerns_context TEXT[], -- Related skin concerns for context
     
     -- Question metadata
     is_answered BOOLEAN DEFAULT false,
@@ -708,15 +915,33 @@ CREATE TABLE product_questions (
     helpful_votes INTEGER DEFAULT 0,
     status feedback_status DEFAULT 'pending',
     
-    -- 🆕 AI Analysis
-    question_category VARCHAR(50), -- "ingredients", "usage", "results", "side_effects"
-    urgency_level VARCHAR(10) DEFAULT 'normal', -- "low", "normal", "high"
+    -- AI Analysis and Categorization
+    question_category VARCHAR(50), -- "ingredients", "usage", "results", "side_effects", "compatibility"
+    urgency_level VARCHAR(10) DEFAULT 'normal' CHECK (urgency_level IN ('low', 'normal', 'high')),
+    
+    -- 🆕 Media Support for Questions (e.g., skin condition photos)
+    has_media BOOLEAN DEFAULT false,
+    media_count INTEGER DEFAULT 0,
     
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- 🆕 Product Question Answers
+-- 🆕 Question Media (for questions with photos/videos)
+CREATE TABLE question_media (
+    id SERIAL PRIMARY KEY,
+    question_id INTEGER REFERENCES product_questions(id) ON DELETE CASCADE,
+    file_id INTEGER REFERENCES uploaded_files(id) ON DELETE CASCADE,
+    
+    -- Media context for questions
+    media_purpose VARCHAR(30), -- 'skin_condition', 'current_routine', 'product_comparison', 'ingredient_check'
+    description TEXT,          -- User description of what the media shows
+    
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Product Question Answers (Enhanced)
 CREATE TABLE product_answers (
     id SERIAL PRIMARY KEY,
     question_id INTEGER REFERENCES product_questions(id) ON DELETE CASCADE,
@@ -724,16 +949,22 @@ CREATE TABLE product_answers (
     
     answer TEXT NOT NULL,
     
-    -- Answer quality indicators
+    -- Answer quality and credibility
     is_from_verified_buyer BOOLEAN DEFAULT false,
-    is_from_expert BOOLEAN DEFAULT false, -- Dermatologist, skincare expert
+    is_from_expert BOOLEAN DEFAULT false,
+    expert_credentials TEXT,   -- Professional background if expert
     helpful_votes INTEGER DEFAULT 0,
     unhelpful_votes INTEGER DEFAULT 0,
     
     -- Answer verification
     is_verified_by_admin BOOLEAN DEFAULT false,
     verified_at TIMESTAMP,
-    verified_by INTEGER REFERENCES users(id),
+    verified_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    verification_notes TEXT,
+    
+    -- 🆕 Media Support for Answers
+    has_media BOOLEAN DEFAULT false,
+    media_count INTEGER DEFAULT 0,
     
     status feedback_status DEFAULT 'pending',
     
@@ -741,54 +972,47 @@ CREATE TABLE product_answers (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- 🆕 Product Feedback Forms (Structured feedback)
+-- 🆕 Answer Media (for answers with supporting photos/videos)
+CREATE TABLE answer_media (
+    id SERIAL PRIMARY KEY,
+    answer_id INTEGER REFERENCES product_answers(id) ON DELETE CASCADE,
+    file_id INTEGER REFERENCES uploaded_files(id) ON DELETE CASCADE,
+    
+    -- Media context for answers
+    media_purpose VARCHAR(30), -- 'demonstration', 'comparison', 'result_example', 'application_technique'
+    description TEXT,
+    
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Product Feedback Forms (unchanged)
 CREATE TABLE product_feedback_responses (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
     order_item_id INTEGER REFERENCES order_items(id) ON DELETE SET NULL,
     
-    -- Structured Feedback Questions (JSON format for flexibility)
     responses JSONB NOT NULL,
-    /* Example JSON structure:
-    {
-        "delivery_experience": {"rating": 5, "comment": "Fast delivery"},
-        "packaging_quality": {"rating": 4, "comment": "Good packaging"},
-        "product_match_description": {"rating": 5, "comment": "Exactly as described"},
-        "skin_compatibility": {"rating": 4, "comment": "No irritation"},
-        "results_timeline": {"rating": 3, "comment": "Took 4 weeks to see results"},
-        "repurchase_intent": {"rating": 5, "comment": "Definitely buying again"},
-        "acne_improvement": {"rating": 4, "comment": "Noticeable reduction in breakouts"}
-    }
-    */
-    
-    -- Overall satisfaction
     overall_rating INTEGER CHECK (overall_rating BETWEEN 1 AND 5),
     
-    -- Follow-up permissions
     allow_followup_contact BOOLEAN DEFAULT false,
-    preferred_contact_method VARCHAR(20), -- 'email', 'sms', 'app_notification'
-    
-    -- Processing status
+    preferred_contact_method VARCHAR(20),
     processed_for_analytics BOOLEAN DEFAULT false,
     
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 🆕 Wishlist Feedback (Interest tracking)
+-- Wishlist Feedback (unchanged)
 CREATE TABLE wishlist_feedback (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
     
-    -- Why interested but haven't purchased yet
     interest_reason TEXT,
-    hesitation_reason TEXT, -- "Too expensive", "Unsure about ingredients"
+    hesitation_reason TEXT,
+    purchase_triggers JSONB,
     
-    -- What would convince them to buy
-    purchase_triggers JSONB, -- ["price_drop", "more_reviews", "dermatologist_recommendation"]
-    
-    -- Notifications preferences
     notify_on_sale BOOLEAN DEFAULT true,
     notify_on_reviews BOOLEAN DEFAULT true,
     notify_on_restock BOOLEAN DEFAULT true,
@@ -865,207 +1089,464 @@ CREATE TABLE wishlists (
 -- 7. 🆕 CONTENT MODERATION SYSTEM
 -- =============================================
 
--- Content moderation queue
+-- Content moderation queue (Enhanced for file content)
 CREATE TABLE moderation_queue (
     id SERIAL PRIMARY KEY,
-    content_type VARCHAR(50) NOT NULL, -- 'review', 'question', 'answer', 'progress_photo'
-    content_id INTEGER NOT NULL, -- ID of the content being moderated
+    content_type VARCHAR(50) NOT NULL, -- 'review', 'question', 'answer', 'progress_photo', 'review_photo', 'user_profile'
+    content_id INTEGER NOT NULL,
     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     
     -- Content snapshot
     content_text TEXT,
-    content_metadata JSONB, -- Photos, additional data
+    content_metadata JSONB,
     
-    -- Moderation flags
-    flagged_reasons TEXT[], -- ['inappropriate_language', 'spam', 'medical_claims']
+    -- 🆕 File-specific moderation
+    file_id INTEGER REFERENCES uploaded_files(id) ON DELETE SET NULL,
+    contains_files BOOLEAN DEFAULT false,
+    file_moderation_results JSONB, -- Results from image/video analysis
+    
+    -- Moderation flags and reasons
+    flagged_reasons TEXT[], -- ['inappropriate_content', 'spam', 'medical_claims', 'inappropriate_image']
     auto_flagged BOOLEAN DEFAULT false,
     user_reported BOOLEAN DEFAULT false,
-    reported_by INTEGER REFERENCES users(id),
+    reported_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    report_reason TEXT,
     
     -- AI Moderation Scores
-    spam_probability DECIMAL(3,2), -- 0.0 to 1.0
-    toxicity_score DECIMAL(3,2),
+    spam_probability DECIMAL(3,2) CHECK (spam_probability BETWEEN 0 AND 1),
+    toxicity_score DECIMAL(3,2) CHECK (toxicity_score BETWEEN 0 AND 1),
     medical_claims_detected BOOLEAN DEFAULT false,
+    inappropriate_content_detected BOOLEAN DEFAULT false,
+    
+    -- 🆕 Image/Video Moderation (for file content)
+    nsfw_score DECIMAL(3,2) CHECK (nsfw_score BETWEEN 0 AND 1),
+    violence_score DECIMAL(3,2) CHECK (violence_score BETWEEN 0 AND 1),
+    has_faces BOOLEAN DEFAULT false,
+    face_count INTEGER DEFAULT 0,
+    image_quality_score DECIMAL(3,2),
     
     -- Review Status
     status moderation_status DEFAULT 'pending',
-    reviewed_by INTEGER REFERENCES users(id),
+    reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     review_notes TEXT,
     reviewed_at TIMESTAMP,
     
-    created_at TIMESTAMP DEFAULT NOW()
+    -- Priority and urgency
+    priority_level INTEGER DEFAULT 3 CHECK (priority_level BETWEEN 1 AND 5), -- 1=highest, 5=lowest
+    escalated BOOLEAN DEFAULT false,
+    escalated_at TIMESTAMP,
+    escalated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- =============================================
 -- 8. 🆕 NOTIFICATION SYSTEM
 -- =============================================
 
--- User notifications
+-- User notifications (Enhanced)
 CREATE TABLE notifications (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     
     -- Notification content
-    type VARCHAR(50) NOT NULL, -- 'review_response', 'question_answered', 'product_recommendation'
+    type VARCHAR(50) NOT NULL, -- 'review_response', 'question_answered', 'file_processed', 'moderation_result'
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
     
+    -- Rich notification data
+    action_url VARCHAR(500),    -- URL to take action or view content
+    thumbnail_url VARCHAR(500), -- Thumbnail for rich notifications
+    action_buttons JSONB,       -- [{"text": "View", "url": "/reviews/123"}, {"text": "Dismiss", "action": "dismiss"}]
+    
     -- Related content
-    related_type VARCHAR(50), -- 'product', 'review', 'question'
+    related_type VARCHAR(50),   -- 'product', 'review', 'question', 'file', 'order'
     related_id INTEGER,
+    
+    -- 🆕 File-related notifications
+    file_id INTEGER REFERENCES uploaded_files(id) ON DELETE SET NULL,
     
     -- Notification metadata
     is_read BOOLEAN DEFAULT false,
     read_at TIMESTAMP,
+    priority VARCHAR(10) DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
     
-    -- Delivery preferences
+    -- Delivery preferences and status
     email_sent BOOLEAN DEFAULT false,
+    email_sent_at TIMESTAMP,
     push_sent BOOLEAN DEFAULT false,
+    push_sent_at TIMESTAMP,
+    sms_sent BOOLEAN DEFAULT false,
+    sms_sent_at TIMESTAMP,
     
+    -- Notification lifecycle
     created_at TIMESTAMP DEFAULT NOW(),
-    expires_at TIMESTAMP -- Optional expiration
+    expires_at TIMESTAMP,
+    dismissed_at TIMESTAMP
 );
 
 -- =============================================
--- ENHANCED INDEXES FOR PERFORMANCE & ML QUERIES
+-- SEED FILE UPLOAD CONFIGURATIONS
 -- =============================================
+
+-- Insert file upload configurations
+INSERT INTO file_upload_configs (
+    context, description, max_file_size, allowed_mime_types, allowed_extensions, 
+    max_width, max_height, min_width, min_height,
+    max_files_per_upload, max_files_per_user, max_total_size_per_user,
+    thumbnail_sizes, storage_path, require_virus_scan
+) VALUES 
+-- Profile pictures
+('profile', 'User profile pictures and banners', 
+ 5242880, -- 5MB
+ ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp'], 
+ ARRAY['jpg', 'jpeg', 'png', 'gif', 'webp'], 
+ 2000, 2000, 100, 100, -- max_width, max_height, min_width, min_height
+ 2, 3, 52428800, -- max_files_per_upload, max_files_per_user, max_total_size (50MB)
+ '{"small": [150, 150], "medium": [300, 300], "large": [600, 600]}', 
+ 'uploads/profiles/', true),
+
+-- Product images  
+('product', 'Product photos, videos, and media content', 
+ 20971520, -- 20MB
+ ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm'], 
+ ARRAY['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm'], 
+ 4000, 4000, 300, 300,
+ 10, NULL, NULL, -- No user limits for product uploads (admin only)
+ '{"thumbnail": [100, 100], "small": [300, 300], "medium": [600, 600], "large": [1200, 1200]}', 
+ 'uploads/products/', true),
+
+-- Review photos (before/after skincare photos)
+('review', 'Customer review photos and videos showing product results', 
+ 10485760, -- 10MB
+ ARRAY['image/jpeg', 'image/png', 'image/webp'], 
+ ARRAY['jpg', 'jpeg', 'png', 'webp'], 
+ 3000, 3000, 300, 300,
+ 8, 100, 209715200, -- 8 files per review, 100 total files, 200MB total
+ '{"thumbnail": [150, 150], "small": [400, 400], "medium": [800, 800]}', 
+ 'uploads/reviews/', true),
+
+-- Progress tracking photos
+('progress', 'Skincare progress photos for tracking treatment results', 
+ 10485760, -- 10MB
+ ARRAY['image/jpeg', 'image/png', 'image/webp'], 
+ ARRAY['jpg', 'jpeg', 'png', 'webp'], 
+ 3000, 3000, 300, 300,
+ 5, 500, 524288000, -- 5 files per entry, 500 total, 500MB total (long-term tracking)
+ '{"thumbnail": [150, 150], "small": [400, 400], "medium": [800, 800]}', 
+ 'uploads/progress/', true),
+
+-- Q&A supporting media
+('qa', 'Photos and videos for product questions and answers', 
+ 8388608, -- 8MB
+ ARRAY['image/jpeg', 'image/png', 'image/webp', 'video/mp4'], 
+ ARRAY['jpg', 'jpeg', 'png', 'webp', 'mp4'], 
+ 2500, 2500, 200, 200,
+ 3, 50, 104857600, -- 3 per Q/A, 50 total, 100MB total
+ '{"thumbnail": [150, 150], "small": [300, 300]}', 
+ 'uploads/qa/', false);
+
+-- =============================================
+-- COMPREHENSIVE INDEXES FOR PERFORMANCE
+-- =============================================
+
+-- 🆕 File system indexes
+CREATE INDEX idx_uploaded_files_upload_context ON uploaded_files(upload_context);
+CREATE INDEX idx_uploaded_files_status ON uploaded_files(status) WHERE status = 'active';
+CREATE INDEX idx_uploaded_files_uploaded_by ON uploaded_files(uploaded_by) WHERE uploaded_by IS NOT NULL;
+CREATE INDEX idx_uploaded_files_related_entity ON uploaded_files(related_entity_type, related_entity_id) WHERE related_entity_type IS NOT NULL;
+CREATE INDEX idx_uploaded_files_temporary ON uploaded_files(is_temporary, expires_at) WHERE is_temporary = true;
+CREATE INDEX idx_uploaded_files_virus_scan ON uploaded_files(virus_scan_status) WHERE virus_scan_status = 'pending';
+CREATE INDEX idx_uploaded_files_content_hash ON uploaded_files(content_hash) WHERE content_hash IS NOT NULL;
+CREATE INDEX idx_uploaded_files_created_at ON uploaded_files(created_at);
+CREATE INDEX idx_uploaded_files_cloud_provider ON uploaded_files(cloud_provider) WHERE cloud_provider IS NOT NULL;
 
 -- User indexes (Enhanced)
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_users_skin_type ON users(skin_type);                   -- 🎯 ML: Skin type analysis
-CREATE INDEX idx_users_community_score ON users(community_score DESC);  -- 🆕 Community engagement
+CREATE INDEX idx_users_skin_type ON users(skin_type);
+CREATE INDEX idx_users_community_score ON users(community_score DESC) WHERE community_score > 0;
+CREATE INDEX idx_users_profile_picture_file ON users(profile_picture_file_id) WHERE profile_picture_file_id IS NOT NULL;
 CREATE INDEX idx_users_password_reset_token ON users(password_reset_token) WHERE password_reset_token IS NOT NULL;
+CREATE INDEX idx_users_email_verification ON users(email_verification_token) WHERE email_verification_token IS NOT NULL;
+CREATE INDEX idx_users_storage_usage ON users(storage_used DESC) WHERE storage_used > 0;
 
 -- Product indexes (Enhanced)
 CREATE INDEX idx_products_status ON products(status) WHERE status = 'active';
 CREATE INDEX idx_products_category ON products(category);
-CREATE INDEX idx_products_skin_type ON products(skin_type);            -- 🎯 ML: Product recommendations
-CREATE INDEX idx_products_skin_concerns ON products USING GIN(skin_concerns); -- 🎯 ML: Concern-based matching
+CREATE INDEX idx_products_skin_type ON products(skin_type);
+CREATE INDEX idx_products_skin_concerns ON products USING GIN(skin_concerns);
 CREATE INDEX idx_products_featured ON products(is_featured) WHERE is_featured = true;
-CREATE INDEX idx_products_created_at ON products(created_at);
-CREATE INDEX idx_products_avg_rating ON products(avg_rating DESC);      -- 🆕 Rating-based sorting
-CREATE INDEX idx_products_total_sales ON products(total_sales DESC);    -- 🆕 Popularity sorting
+CREATE INDEX idx_products_avg_rating ON products(avg_rating DESC) WHERE avg_rating > 0;
+CREATE INDEX idx_products_total_sales ON products(total_sales DESC) WHERE total_sales > 0;
+CREATE INDEX idx_products_main_image_file ON products(main_image_file_id) WHERE main_image_file_id IS NOT NULL;
+CREATE INDEX idx_products_price_range ON products(price) WHERE status = 'active';
 
--- Order indexes (🎯 Critical for ML training)
-CREATE INDEX idx_orders_user_id ON orders(user_id);                    -- 🎯 ML: User purchase history
+-- 🆕 Product media indexes
+CREATE INDEX idx_product_media_product_id ON product_media(product_id);
+CREATE INDEX idx_product_media_file_id ON product_media(file_id);
+CREATE INDEX idx_product_media_purpose ON product_media(media_purpose);
+CREATE INDEX idx_product_media_sort_order ON product_media(product_id, sort_order);
+
+-- Category indexes (Enhanced)
+CREATE INDEX idx_categories_parent_id ON categories(parent_id) WHERE parent_id IS NOT NULL;
+CREATE INDEX idx_categories_active ON categories(is_active) WHERE is_active = true;
+CREATE INDEX idx_categories_sort_order ON categories(sort_order);
+CREATE INDEX idx_categories_image_file ON categories(image_file_id) WHERE image_file_id IS NOT NULL;
+
+-- Order indexes (Critical for ML training)
+CREATE INDEX idx_orders_user_id ON orders(user_id) WHERE user_id IS NOT NULL;
 CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_orders_created_at ON orders(created_at);              -- 🎯 ML: Temporal patterns
-CREATE INDEX idx_orders_order_number ON orders(order_number);
+CREATE INDEX idx_orders_created_at ON orders(created_at);
+CREATE INDEX idx_orders_payment_status ON orders(payment_status);
 
--- Order items indexes (🎯 Critical for collaborative filtering)
+-- Order items indexes (Critical for collaborative filtering)
 CREATE INDEX idx_order_items_order_id ON order_items(order_id);
-CREATE INDEX idx_order_items_product_id ON order_items(product_id);    -- 🎯 ML: Product popularity
-CREATE INDEX idx_order_items_user_product ON order_items(order_id, product_id); -- 🎯 ML: User-product matrix
+CREATE INDEX idx_order_items_product_id ON order_items(product_id);
+CREATE INDEX idx_order_items_user_product ON order_items(order_id, product_id);
 
 -- 🆕 Enhanced Review indexes (Critical for feedback analytics)
-CREATE INDEX idx_product_reviews_product_id ON product_reviews(product_id);        -- 🎯 ML: Product feedback
-CREATE INDEX idx_product_reviews_user_id ON product_reviews(user_id);              -- 🎯 ML: User review patterns  
+CREATE INDEX idx_product_reviews_product_id ON product_reviews(product_id);
+CREATE INDEX idx_product_reviews_user_id ON product_reviews(user_id) WHERE user_id IS NOT NULL;
 CREATE INDEX idx_product_reviews_status ON product_reviews(status) WHERE status = 'approved';
-CREATE INDEX idx_product_reviews_rating ON product_reviews(rating);                -- 🎯 ML: Rating distribution
-CREATE INDEX idx_product_reviews_skin_type ON product_reviews(skin_type_at_review); -- 🎯 ML: Skin-specific feedback
+CREATE INDEX idx_product_reviews_rating ON product_reviews(rating);
+CREATE INDEX idx_product_reviews_skin_type ON product_reviews(skin_type_at_review) WHERE skin_type_at_review IS NOT NULL;
 CREATE INDEX idx_product_reviews_verified ON product_reviews(is_verified_purchase) WHERE is_verified_purchase = true;
 CREATE INDEX idx_product_reviews_visible_results ON product_reviews(visible_results) WHERE visible_results = true;
 CREATE INDEX idx_product_reviews_sentiment ON product_reviews(sentiment_score) WHERE sentiment_score IS NOT NULL;
+CREATE INDEX idx_product_reviews_has_media ON product_reviews(has_photos, has_video) WHERE has_photos = true OR has_video = true;
+CREATE INDEX idx_product_reviews_helpful ON product_reviews(helpful_votes_count DESC) WHERE helpful_votes_count > 0;
+
+-- 🆕 Review media indexes
+CREATE INDEX idx_review_media_review_id ON review_media(review_id);
+CREATE INDEX idx_review_media_file_id ON review_media(file_id);
+CREATE INDEX idx_review_media_photo_type ON review_media(photo_type) WHERE photo_type IS NOT NULL;
+CREATE INDEX idx_review_media_timeline ON review_media(timeline_context) WHERE timeline_context IS NOT NULL;
+CREATE INDEX idx_review_media_featured ON review_media(is_featured) WHERE is_featured = true;
 
 -- 🆕 Progress tracking indexes
 CREATE INDEX idx_skincare_progress_user_product ON skincare_progress(user_id, product_id);
 CREATE INDEX idx_skincare_progress_week ON skincare_progress(week_number);
-CREATE INDEX idx_skincare_progress_satisfaction ON skincare_progress(overall_satisfaction);
+CREATE INDEX idx_skincare_progress_satisfaction ON skincare_progress(overall_satisfaction) WHERE overall_satisfaction IS NOT NULL;
+CREATE INDEX idx_skincare_progress_status ON skincare_progress(status);
+CREATE INDEX idx_skincare_progress_has_photos ON skincare_progress(has_photos) WHERE has_photos = true;
+
+-- 🆕 Progress media indexes
+CREATE INDEX idx_progress_media_progress_id ON progress_media(progress_id);
+CREATE INDEX idx_progress_media_file_id ON progress_media(file_id);
+CREATE INDEX idx_progress_media_photo_type ON progress_media(photo_type);
+CREATE INDEX idx_progress_media_featured ON progress_media(is_featured) WHERE is_featured = true;
 
 -- 🆕 Q&A System indexes
 CREATE INDEX idx_product_questions_product_id ON product_questions(product_id);
-CREATE INDEX idx_product_questions_user_id ON product_questions(user_id);
+CREATE INDEX idx_product_questions_user_id ON product_questions(user_id) WHERE user_id IS NOT NULL;
 CREATE INDEX idx_product_questions_status ON product_questions(status) WHERE status = 'approved';
-CREATE INDEX idx_product_answers_question_id ON product_answers(question_id);
-CREATE INDEX idx_product_answers_expert ON product_answers(is_from_expert) WHERE is_from_expert = true;
+CREATE INDEX idx_product_questions_answered ON product_questions(is_answered);
+CREATE INDEX idx_product_questions_category ON product_questions(question_category) WHERE question_category IS NOT NULL;
+CREATE INDEX idx_product_questions_has_media ON product_questions(has_media) WHERE has_media = true;
 
--- 🆕 Review votes indexes
+CREATE INDEX idx_product_answers_question_id ON product_answers(question_id);
+CREATE INDEX idx_product_answers_user_id ON product_answers(user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX idx_product_answers_expert ON product_answers(is_from_expert) WHERE is_from_expert = true;
+CREATE INDEX idx_product_answers_verified ON product_answers(is_verified_by_admin) WHERE is_verified_by_admin = true;
+CREATE INDEX idx_product_answers_helpful ON product_answers(helpful_votes DESC) WHERE helpful_votes > 0;
+
+-- 🆕 Q&A Media indexes
+CREATE INDEX idx_question_media_question_id ON question_media(question_id);
+CREATE INDEX idx_question_media_file_id ON question_media(file_id);
+CREATE INDEX idx_answer_media_answer_id ON answer_media(answer_id);
+CREATE INDEX idx_answer_media_file_id ON answer_media(file_id);
+
+-- Review votes indexes
 CREATE INDEX idx_review_votes_review_id ON review_votes(review_id);
 CREATE INDEX idx_review_votes_user_id ON review_votes(user_id);
+CREATE INDEX idx_review_votes_vote_type ON review_votes(vote_type);
 
 -- Coupon indexes
 CREATE INDEX idx_coupons_code ON coupons(code);
 CREATE INDEX idx_coupons_status ON coupons(status) WHERE status = 'active';
-CREATE INDEX idx_coupons_dates ON coupons(start_date, end_date);
+CREATE INDEX idx_coupons_dates ON coupons(start_date, end_date) WHERE status = 'active';
+CREATE INDEX idx_coupon_usage_coupon_id ON coupon_usage(coupon_id);
+CREATE INDEX idx_coupon_usage_user_id ON coupon_usage(user_id) WHERE user_id IS NOT NULL;
 
 -- Shopping cart indexes
 CREATE INDEX idx_shopping_cart_user_id ON shopping_cart(user_id);
 CREATE INDEX idx_shopping_cart_product_id ON shopping_cart(product_id);
+CREATE INDEX idx_shopping_cart_updated_at ON shopping_cart(updated_at);
 
--- Wishlist indexes (🎯 Useful for preference learning)
-CREATE INDEX idx_wishlists_user_id ON wishlists(user_id);              -- 🎯 ML: User preferences
-CREATE INDEX idx_wishlists_product_id ON wishlists(product_id);        -- 🎯 ML: Product wishlist frequency
+-- Wishlist indexes
+CREATE INDEX idx_wishlists_user_id ON wishlists(user_id);
+CREATE INDEX idx_wishlists_product_id ON wishlists(product_id);
 
 -- 🆕 Moderation system indexes
 CREATE INDEX idx_moderation_queue_status ON moderation_queue(status) WHERE status = 'pending';
 CREATE INDEX idx_moderation_queue_content_type ON moderation_queue(content_type);
-CREATE INDEX idx_moderation_queue_user_id ON moderation_queue(user_id);
+CREATE INDEX idx_moderation_queue_user_id ON moderation_queue(user_id) WHERE user_id IS NOT NULL;
 CREATE INDEX idx_moderation_queue_auto_flagged ON moderation_queue(auto_flagged) WHERE auto_flagged = true;
+CREATE INDEX idx_moderation_queue_file_id ON moderation_queue(file_id) WHERE file_id IS NOT NULL;
+CREATE INDEX idx_moderation_queue_priority ON moderation_queue(priority_level, created_at);
+CREATE INDEX idx_moderation_queue_escalated ON moderation_queue(escalated) WHERE escalated = true;
 
 -- 🆕 Notification indexes
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
-CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read) WHERE is_read = false;
-CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
+CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read, created_at DESC) WHERE is_read = false;
+CREATE INDEX idx_notifications_type ON notifications(type);
+CREATE INDEX idx_notifications_priority ON notifications(priority, created_at DESC) WHERE priority IN ('high', 'urgent');
+CREATE INDEX idx_notifications_expires ON notifications(expires_at) WHERE expires_at IS NOT NULL AND expires_at > NOW();
+CREATE INDEX idx_notifications_file_id ON notifications(file_id) WHERE file_id IS NOT NULL;
 
 -- =============================================
--- CONSTRAINTS & VALIDATIONS (Enhanced)
+-- ADDITIONAL CONSTRAINTS & VALIDATIONS
 -- =============================================
 
 -- Email format validation
 ALTER TABLE users ADD CONSTRAINT valid_email 
-CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}
-    );
+CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,});
 
--- Price validations
-ALTER TABLE products ADD CONSTRAINT positive_price CHECK (price > 0);
-ALTER TABLE products ADD CONSTRAINT valid_compare_price 
-CHECK (compare_at_price IS NULL OR compare_at_price >= price);
-
--- Order total calculations
-ALTER TABLE orders ADD CONSTRAINT valid_total 
-CHECK (total = subtotal + tax_amount + shipping_amount - discount_amount);
-
--- Coupon value validations
-ALTER TABLE coupons ADD CONSTRAINT valid_coupon_value 
+-- File upload constraints
+ALTER TABLE uploaded_files ADD CONSTRAINT valid_file_extension 
 CHECK (
-    (type = 'percentage' AND value >= 0 AND value <= 100) OR
-    (type IN ('fixed', 'free_shipping') AND value >= 0)
+    CASE 
+        WHEN mime_type LIKE 'image/%' THEN file_extension IN ('jpg', 'jpeg', 'png', 'gif', 'webp', 'svg')
+        WHEN mime_type LIKE 'video/%' THEN file_extension IN ('mp4', 'mov', 'avi', 'webm', 'mkv')
+        WHEN mime_type LIKE 'audio/%' THEN file_extension IN ('mp3', 'wav', 'ogg', 'm4a')
+        ELSE true -- Allow other types
+    END
 );
 
--- Date validations
-ALTER TABLE coupons ADD CONSTRAINT valid_coupon_dates 
-CHECK (start_date IS NULL OR end_date IS NULL OR start_date <= end_date);
-
--- 🆕 Review validations
-ALTER TABLE product_reviews ADD CONSTRAINT valid_usage_duration 
-CHECK (usage_duration IS NULL OR usage_duration >= 0);
-
-ALTER TABLE product_reviews ADD CONSTRAINT valid_detailed_ratings 
+-- Review media constraints
+ALTER TABLE review_media ADD CONSTRAINT valid_photo_type_for_media 
 CHECK (
-    (effectiveness_rating IS NULL OR effectiveness_rating BETWEEN 1 AND 5) AND
-    (texture_rating IS NULL OR texture_rating BETWEEN 1 AND 5) AND
-    (scent_rating IS NULL OR scent_rating BETWEEN 1 AND 5) AND
-    (packaging_rating IS NULL OR packaging_rating BETWEEN 1 AND 5) AND
-    (value_for_money_rating IS NULL OR value_for_money_rating BETWEEN 1 AND 5)
+    (media_type = 'photo' AND photo_type IS NOT NULL) OR
+    (media_type = 'video' AND photo_type IS NULL)
 );
 
--- 🆕 Progress tracking validations  
-ALTER TABLE skincare_progress ADD CONSTRAINT valid_week_number 
-CHECK (week_number > 0 AND week_number <= 52);
+-- Progress constraints
+ALTER TABLE skincare_progress ADD CONSTRAINT valid_progress_date 
+CHECK (progress_date <= CURRENT_DATE);
 
-ALTER TABLE skincare_progress ADD CONSTRAINT valid_progress_ratings
-CHECK (
-    (overall_satisfaction BETWEEN 1 AND 5) AND
-    (skin_improvement BETWEEN 1 AND 5) AND
-    (side_effects_severity BETWEEN 0 AND 5)
-);
+-- Notification constraints
+ALTER TABLE notifications ADD CONSTRAINT valid_notification_expiry 
+CHECK (expires_at IS NULL OR expires_at > created_at);
 
 -- =============================================
--- 🎯 ML-SPECIFIC VIEWS FOR TRAINING DATA (Enhanced)
+-- DATABASE FUNCTIONS & TRIGGERS
 -- =============================================
 
--- 🆕 Comprehensive User Purchase Behavior (Enhanced for ML)
+-- 🆕 Function to update user storage usage
+CREATE OR REPLACE FUNCTION update_user_storage()
+RETURNS TRIGGER AS $
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE users 
+        SET storage_used = storage_used + NEW.file_size,
+            files_uploaded = files_uploaded + 1
+        WHERE id = NEW.uploaded_by;
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE users 
+        SET storage_used = GREATEST(0, storage_used - OLD.file_size),
+            files_uploaded = GREATEST(0, files_uploaded - 1)
+        WHERE id = OLD.uploaded_by;
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$ LANGUAGE plpgsql;
+
+-- Trigger for user storage tracking
+CREATE TRIGGER trigger_update_user_storage
+    AFTER INSERT OR DELETE ON uploaded_files
+    FOR EACH ROW EXECUTE FUNCTION update_user_storage();
+
+-- 🆕 Function to update review media count
+CREATE OR REPLACE FUNCTION update_review_media_count()
+RETURNS TRIGGER AS $
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE product_reviews 
+        SET media_count = media_count + 1,
+            has_photos = CASE WHEN NEW.media_type = 'photo' THEN true ELSE has_photos END,
+            has_video = CASE WHEN NEW.media_type = 'video' THEN true ELSE has_video END
+        WHERE id = NEW.review_id;
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE product_reviews 
+        SET media_count = GREATEST(0, media_count - 1)
+        WHERE id = OLD.review_id;
+        
+        -- Update has_photos and has_video flags
+        UPDATE product_reviews 
+        SET has_photos = EXISTS(SELECT 1 FROM review_media rm WHERE rm.review_id = OLD.review_id AND rm.media_type = 'photo'),
+            has_video = EXISTS(SELECT 1 FROM review_media rm WHERE rm.review_id = OLD.review_id AND rm.media_type = 'video')
+        WHERE id = OLD.review_id;
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$ LANGUAGE plpgsql;
+
+-- Trigger for review media count
+CREATE TRIGGER trigger_update_review_media_count
+    AFTER INSERT OR DELETE ON review_media
+    FOR EACH ROW EXECUTE FUNCTION update_review_media_count();
+
+-- 🆕 Function to update progress photo count
+CREATE OR REPLACE FUNCTION update_progress_photo_count()
+RETURNS TRIGGER AS $
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE skincare_progress 
+        SET photo_count = photo_count + 1,
+            has_photos = true
+        WHERE id = NEW.progress_id;
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE skincare_progress 
+        SET photo_count = GREATEST(0, photo_count - 1)
+        WHERE id = OLD.progress_id;
+        
+        -- Update has_photos flag
+        UPDATE skincare_progress 
+        SET has_photos = EXISTS(SELECT 1 FROM progress_media pm WHERE pm.progress_id = OLD.progress_id)
+        WHERE id = OLD.progress_id;
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$ LANGUAGE plpgsql;
+
+-- Trigger for progress photo count
+CREATE TRIGGER trigger_update_progress_photo_count
+    AFTER INSERT OR DELETE ON progress_media
+    FOR EACH ROW EXECUTE FUNCTION update_progress_photo_count();
+
+-- 🆕 Function to clean up expired temporary files
+CREATE OR REPLACE FUNCTION cleanup_expired_files()
+RETURNS INTEGER AS $
+DECLARE
+    deleted_count INTEGER;
+BEGIN
+    -- Mark expired temporary files as deleted
+    UPDATE uploaded_files 
+    SET status = 'deleted',
+        deleted_at = NOW()
+    WHERE is_temporary = true 
+      AND expires_at < NOW()
+      AND status != 'deleted';
+    
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    
+    RETURN deleted_count;
+END;
+$ LANGUAGE plpgsql;
+
+-- =============================================
+-- ML-OPTIMIZED VIEWS (Enhanced with File Support)
+-- =============================================
+
+-- 🆕 Comprehensive User Purchase Behavior with Media Engagement
 CREATE VIEW user_purchase_matrix AS
 SELECT 
     u.id as user_id,
@@ -1073,24 +1554,36 @@ SELECT
     u.date_of_birth,
     EXTRACT(YEAR FROM AGE(u.date_of_birth)) as age,
     u.community_score,
+    u.files_uploaded,
+    u.storage_used,
+    
     oi.product_id,
     p.category,
     p.skin_type as product_skin_type,
     p.skin_concerns,
     p.price,
+    
+    -- Purchase behavior
     COUNT(oi.id) as purchase_count,
     SUM(oi.quantity) as total_quantity,
     AVG(oi.unit_price) as avg_price,
     MAX(o.created_at) as last_purchase_date,
     MIN(o.created_at) as first_purchase_date,
     
-    -- 🆕 Review engagement
+    -- Review engagement with media
     COUNT(pr.id) as reviews_written,
     AVG(pr.rating) as avg_rating_given,
     AVG(CASE WHEN pr.visible_results THEN 1 ELSE 0 END) as results_rate,
+    COUNT(CASE WHEN pr.has_photos THEN 1 END) as reviews_with_photos,
+    COUNT(CASE WHEN pr.has_video THEN 1 END) as reviews_with_video,
     
-    -- 🆕 Progress tracking engagement
-    COUNT(sp.id) as progress_entries
+    -- Progress tracking engagement
+    COUNT(sp.id) as progress_entries,
+    COUNT(CASE WHEN sp.has_photos THEN 1 END) as progress_with_photos,
+    
+    -- Q&A engagement
+    COUNT(pq.id) as questions_asked,
+    COUNT(CASE WHEN pq.has_media THEN 1 END) as questions_with_media
     
 FROM users u
 JOIN orders o ON u.id = o.user_id
@@ -1098,11 +1591,12 @@ JOIN order_items oi ON o.id = oi.order_id
 JOIN products p ON oi.product_id = p.id
 LEFT JOIN product_reviews pr ON u.id = pr.user_id AND p.id = pr.product_id
 LEFT JOIN skincare_progress sp ON u.id = sp.user_id AND p.id = sp.product_id
+LEFT JOIN product_questions pq ON u.id = pq.user_id AND p.id = pq.product_id
 WHERE o.status IN ('delivered', 'confirmed')
-GROUP BY u.id, u.skin_type, u.date_of_birth, u.community_score, oi.product_id, 
-         p.category, p.skin_type, p.skin_concerns, p.price;
+GROUP BY u.id, u.skin_type, u.date_of_birth, u.community_score, u.files_uploaded, u.storage_used,
+         oi.product_id, p.category, p.skin_type, p.skin_concerns, p.price;
 
--- 🆕 Enhanced Product Rating Summary (With detailed feedback)
+-- 🆕 Enhanced Product Rating Summary with Media Analysis
 CREATE VIEW product_rating_summary AS
 SELECT 
     p.id as product_id,
@@ -1117,35 +1611,46 @@ SELECT
     AVG(pr.rating) as avg_rating,
     COUNT(DISTINCT pr.user_id) as unique_reviewers,
     
-    -- 🆕 Detailed rating breakdown
+    -- Media engagement stats
+    COUNT(CASE WHEN pr.has_photos THEN 1 END) as reviews_with_photos,
+    COUNT(CASE WHEN pr.has_video THEN 1 END) as reviews_with_video,
+    AVG(pr.media_count) as avg_media_per_review,
+    
+    -- Before/after photo analysis
+    COUNT(CASE WHEN EXISTS(
+        SELECT 1 FROM review_media rm 
+        WHERE rm.review_id = pr.id AND rm.photo_type = 'before'
+    ) THEN 1 END) as reviews_with_before_photos,
+    COUNT(CASE WHEN EXISTS(
+        SELECT 1 FROM review_media rm 
+        WHERE rm.review_id = pr.id AND rm.photo_type = 'after'
+    ) THEN 1 END) as reviews_with_after_photos,
+    
+    -- Detailed rating breakdown
     AVG(pr.effectiveness_rating) as avg_effectiveness,
     AVG(pr.texture_rating) as avg_texture,
     AVG(pr.scent_rating) as avg_scent,
     AVG(pr.packaging_rating) as avg_packaging,
     AVG(pr.value_for_money_rating) as avg_value,
     
-    -- Skin type performance
+    -- Skin type performance with media
     COUNT(CASE WHEN pr.skin_type_at_review = 'acne' THEN 1 END) as acne_reviews,
     AVG(CASE WHEN pr.skin_type_at_review = 'acne' THEN pr.rating END) as acne_avg_rating,
-    COUNT(CASE WHEN pr.skin_type_at_review = 'oily' THEN 1 END) as oily_reviews,
-    AVG(CASE WHEN pr.skin_type_at_review = 'oily' THEN pr.rating END) as oily_avg_rating,
-    COUNT(CASE WHEN pr.skin_type_at_review = 'dry' THEN 1 END) as dry_reviews,
-    AVG(CASE WHEN pr.skin_type_at_review = 'dry' THEN pr.rating END) as dry_avg_rating,
-    COUNT(CASE WHEN pr.skin_type_at_review = 'sensitive' THEN 1 END) as sensitive_reviews,
-    AVG(CASE WHEN pr.skin_type_at_review = 'sensitive' THEN pr.rating END) as sensitive_avg_rating,
+    COUNT(CASE WHEN pr.skin_type_at_review = 'acne' AND pr.has_photos THEN 1 END) as acne_reviews_with_photos,
     
-    -- Results & Recommendations
+    -- Results and recommendations
     AVG(CASE WHEN pr.visible_results THEN 1 ELSE 0 END) as results_rate,
     AVG(CASE WHEN pr.would_recommend THEN 1 ELSE 0 END) as recommendation_rate,
     
-    -- 🆕 Sentiment analysis
+    -- Sentiment analysis
     AVG(pr.sentiment_score) as avg_sentiment,
     COUNT(CASE WHEN pr.sentiment_label = 'positive' THEN 1 END) as positive_reviews,
     COUNT(CASE WHEN pr.sentiment_label = 'negative' THEN 1 END) as negative_reviews,
     
-    -- Progress tracking
+    -- Progress tracking with photos
     COUNT(DISTINCT sp.user_id) as users_tracking_progress,
     AVG(sp.overall_satisfaction) as avg_progress_satisfaction,
+    COUNT(CASE WHEN sp.has_photos THEN 1 END) as progress_entries_with_photos,
     AVG(CASE WHEN sp.acne_reduced THEN 1 ELSE 0 END) as acne_improvement_rate
     
 FROM products p
@@ -1154,136 +1659,414 @@ LEFT JOIN skincare_progress sp ON p.id = sp.product_id
 WHERE p.status = 'active'
 GROUP BY p.id, p.category, p.skin_type, p.skin_concerns, p.price, p.key_benefits;
 
--- 🆕 User Feedback Engagement Summary (For community features)
-CREATE VIEW user_feedback_summary AS
+-- 🆕 File Usage and Storage Summary
+CREATE VIEW file_usage_summary AS
+SELECT 
+    uf.upload_context,
+    COUNT(*) as total_files,
+    COUNT(DISTINCT uf.uploaded_by) as unique_users,
+    SUM(uf.file_size) as total_storage,
+    AVG(uf.file_size) as avg_file_size,
+    COUNT(CASE WHEN uf.status = 'active' THEN 1 END) as active_files,
+    COUNT(CASE WHEN uf.is_temporary THEN 1 END) as temporary_files,
+    COUNT(CASE WHEN uf.virus_scan_status = 'clean' THEN 1 END) as clean_files,
+    COUNT(CASE WHEN uf.media_type = 'image' THEN 1 END) as image_files,
+    COUNT(CASE WHEN uf.media_type = 'video' THEN 1 END) as video_files,
+    
+    -- Storage efficiency metrics
+    ROUND(AVG(uf.file_size)::numeric / 1024 / 1024, 2) as avg_size_mb,
+    ROUND(SUM(uf.file_size)::numeric / 1024 / 1024 / 1024, 2) as total_size_gb,
+    
+    -- Upload patterns
+    DATE_TRUNC('month', MAX(uf.created_at)) as last_upload_month,
+    COUNT(CASE WHEN uf.created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as uploads_last_30_days,
+    
+    -- Processing metrics
+    AVG(EXTRACT(EPOCH FROM (uf.processed_at - uf.created_at))) as avg_processing_time_seconds,
+    COUNT(CASE WHEN uf.processing_error IS NOT NULL THEN 1 END) as failed_processing_count
+    
+FROM uploaded_files uf
+WHERE uf.deleted_at IS NULL
+GROUP BY uf.upload_context
+ORDER BY total_storage DESC;
+
+-- 🆕 User Engagement with Media Content
+CREATE VIEW user_media_engagement AS
 SELECT 
     u.id as user_id,
     u.email,
     u.skin_type,
     u.community_score,
     
-    -- Review Activity
-    COUNT(pr.id) as total_reviews_written,
-    AVG(pr.rating) as avg_rating_given,
-    COUNT(CASE WHEN pr.visible_results THEN 1 END) as products_with_results,
-    AVG(pr.usage_duration) as avg_usage_duration,
+    -- File upload activity
+    COUNT(uf.id) as total_files_uploaded,
+    SUM(uf.file_size) as total_storage_used,
+    COUNT(CASE WHEN uf.upload_context = 'profile' THEN 1 END) as profile_files,
+    COUNT(CASE WHEN uf.upload_context = 'review' THEN 1 END) as review_files,
+    COUNT(CASE WHEN uf.upload_context = 'progress' THEN 1 END) as progress_files,
+    COUNT(CASE WHEN uf.upload_context = 'qa' THEN 1 END) as qa_files,
     
-    -- Review Quality Metrics
-    SUM(pr.helpful_votes_count) as total_helpful_votes_received,
-    AVG(pr.helpful_votes_count) as avg_helpful_votes_per_review,
-    COUNT(CASE WHEN LENGTH(pr.review_text) > 100 THEN 1 END) as detailed_reviews,
+    -- Review engagement with media
+    COUNT(pr.id) as total_reviews,
+    COUNT(CASE WHEN pr.has_photos THEN 1 END) as reviews_with_photos,
+    COUNT(CASE WHEN pr.has_video THEN 1 END) as reviews_with_videos,
+    AVG(pr.media_count) as avg_media_per_review,
     
-    -- Progress Tracking Engagement
-    COUNT(DISTINCT sp.product_id) as products_tracked,
-    COUNT(sp.id) as total_progress_entries,
-    AVG(sp.overall_satisfaction) as avg_progress_satisfaction,
+    -- Progress tracking with photos
+    COUNT(sp.id) as progress_entries,
+    COUNT(CASE WHEN sp.has_photos THEN 1 END) as progress_with_photos,
+    AVG(sp.photo_count) as avg_photos_per_progress,
     
-    -- Q&A Participation
+    -- Q&A with media
     COUNT(pq.id) as questions_asked,
+    COUNT(CASE WHEN pq.has_media THEN 1 END) as questions_with_media,
     COUNT(pa.id) as answers_provided,
-    SUM(pa.helpful_votes) as qa_helpful_votes,
+    COUNT(CASE WHEN pa.has_media THEN 1 END) as answers_with_media,
     
-    -- Community Engagement Score (calculated metric)
+    -- Engagement quality metrics
+    COALESCE(AVG(pr.helpful_votes_count), 0) as avg_helpful_votes_per_review,
+    COALESCE(SUM(pr.helpful_votes_count), 0) as total_helpful_votes_received,
+    
+    -- Media engagement score (weighted)
     (
-        COUNT(pr.id) * 2 + 
-        SUM(pr.helpful_votes_count) * 0.5 + 
-        COUNT(pq.id) + 
-        COUNT(pa.id) * 1.5 +
-        COUNT(sp.id) * 0.3 +
-        SUM(pa.helpful_votes) * 0.2
-    ) as calculated_engagement_score,
+        COUNT(CASE WHEN pr.has_photos THEN 1 END) * 2 + 
+        COUNT(CASE WHEN pr.has_video THEN 1 END) * 3 + 
+        COUNT(CASE WHEN sp.has_photos THEN 1 END) * 1.5 +
+        COUNT(CASE WHEN pq.has_media THEN 1 END) * 1 +
+        COUNT(CASE WHEN pa.has_media THEN 1 END) * 1.5
+    ) as media_engagement_score,
     
-    -- 🆕 Feedback reliability score
-    CASE 
-        WHEN COUNT(pr.id) >= 5 AND AVG(pr.helpful_votes_count) >= 2 THEN 'high'
-        WHEN COUNT(pr.id) >= 2 AND AVG(pr.helpful_votes_count) >= 1 THEN 'medium'
-        ELSE 'low'
-    END as reliability_score
+    -- Activity timeline
+    MAX(uf.created_at) as last_upload_date,
+    MAX(pr.created_at) as last_review_date,
+    MAX(sp.created_at) as last_progress_date
     
 FROM users u
+LEFT JOIN uploaded_files uf ON u.id = uf.uploaded_by AND uf.deleted_at IS NULL
 LEFT JOIN product_reviews pr ON u.id = pr.user_id
 LEFT JOIN skincare_progress sp ON u.id = sp.user_id
 LEFT JOIN product_questions pq ON u.id = pq.user_id
 LEFT JOIN product_answers pa ON u.id = pa.user_id
-GROUP BY u.id, u.email, u.skin_type, u.community_score;
+GROUP BY u.id, u.email, u.skin_type, u.community_score
+HAVING COUNT(uf.id) > 0 OR COUNT(pr.id) > 0 OR COUNT(sp.id) > 0 OR COUNT(pq.id) > 0 OR COUNT(pa.id) > 0
+ORDER BY media_engagement_score DESC;
 
--- 🆕 Product Feedback Intelligence Summary
-CREATE VIEW product_feedback_intelligence AS
+-- 🆕 Product Visual Content Summary
+CREATE VIEW product_visual_content_summary AS
 SELECT 
     p.id as product_id,
     p.name_en as product_name,
     p.category,
     p.skin_type as target_skin_type,
-    p.price,
     
-    -- Overall Performance Metrics
-    COUNT(pr.id) as total_feedback_count,
-    AVG(pr.rating) as avg_rating,
-    STDDEV(pr.rating) as rating_variance,
+    -- Official product media
+    COUNT(pm.id) as official_media_count,
+    COUNT(CASE WHEN pm.media_purpose = 'main' THEN 1 END) as main_images,
+    COUNT(CASE WHEN pm.media_purpose = 'gallery' THEN 1 END) as gallery_images,
+    COUNT(CASE WHEN pm.media_purpose = 'instruction' THEN 1 END) as instruction_media,
     
-    -- Skin Type Distribution & Performance
-    jsonb_object_agg(
-        COALESCE(pr.skin_type_at_review::text, 'unknown'),
-        jsonb_build_object(
-            'count', COUNT(CASE WHEN pr.skin_type_at_review IS NOT NULL THEN 1 END),
-            'avg_rating', AVG(CASE WHEN pr.skin_type_at_review IS NOT NULL THEN pr.rating END),
-            'results_rate', AVG(CASE WHEN pr.skin_type_at_review IS NOT NULL AND pr.visible_results THEN 1 ELSE 0 END)
-        )
-    ) as skin_type_performance,
+    -- User-generated content from reviews
+    COUNT(CASE WHEN pr.has_photos THEN 1 END) as reviews_with_photos,
+    COUNT(CASE WHEN pr.has_video THEN 1 END) as reviews_with_videos,
+    SUM(pr.media_count) as total_review_media,
     
-    -- Sentiment Analysis Summary
-    AVG(pr.sentiment_score) as avg_sentiment,
-    COUNT(CASE WHEN pr.sentiment_label = 'positive' THEN 1 END) as positive_count,
-    COUNT(CASE WHEN pr.sentiment_label = 'negative' THEN 1 END) as negative_count,
-    COUNT(CASE WHEN pr.sentiment_label = 'neutral' THEN 1 END) as neutral_count,
+    -- Before/after photo analysis
+    COUNT(CASE WHEN EXISTS(
+        SELECT 1 FROM review_media rm 
+        WHERE rm.review_id = pr.id AND rm.photo_type = 'before'
+    ) THEN 1 END) as before_photos_count,
+    COUNT(CASE WHEN EXISTS(
+        SELECT 1 FROM review_media rm 
+        WHERE rm.review_id = pr.id AND rm.photo_type = 'after'
+    ) THEN 1 END) as after_photos_count,
     
-    -- Usage Patterns
-    mode() WITHIN GROUP (ORDER BY pr.how_often_used) as most_common_usage,
-    AVG(pr.usage_duration) as avg_usage_duration,
+    -- Progress tracking photos
+    COUNT(DISTINCT sp.user_id) as users_with_progress_photos,
+    COALESCE(SUM(sp.photo_count), 0) as total_progress_photos,
     
-    -- Results & Satisfaction
-    AVG(CASE WHEN pr.visible_results THEN 1 ELSE 0 END) as results_rate,
-    AVG(CASE WHEN pr.would_recommend THEN 1 ELSE 0 END) as recommendation_rate,
+    -- Timeline analysis of visual results
+    AVG(CASE WHEN EXISTS(
+        SELECT 1 FROM review_media rm 
+        WHERE rm.review_id = pr.id AND rm.days_of_usage IS NOT NULL
+    ) THEN (
+        SELECT AVG(rm.days_of_usage) 
+        FROM review_media rm 
+        WHERE rm.review_id = pr.id AND rm.days_of_usage IS NOT NULL
+    ) END) as avg_days_to_visible_results,
     
-    -- Detailed Rating Breakdown
-    AVG(pr.effectiveness_rating) as avg_effectiveness,
-    AVG(pr.texture_rating) as avg_texture,
-    AVG(pr.scent_rating) as avg_scent,
-    AVG(pr.packaging_rating) as avg_packaging,
-    AVG(pr.value_for_money_rating) as avg_value,
+    -- Visual content engagement
+    AVG(pr.helpful_votes_count) as avg_helpful_votes_visual_reviews,
     
-    -- Community Engagement
-    SUM(pr.helpful_votes_count) as total_helpful_votes,
-    COUNT(CASE WHEN pr.photos IS NOT NULL THEN 1 END) as reviews_with_photos,
+    -- Content quality indicators
+    COUNT(CASE WHEN rm.lighting_condition = 'natural' THEN 1 END) as natural_lighting_photos,
+    COUNT(CASE WHEN rm.timeline_context IS NOT NULL THEN 1 END) as timeline_documented_photos,
     
-    -- Progress Tracking Insights
-    COUNT(DISTINCT sp.user_id) as users_tracking_progress,
-    AVG(sp.overall_satisfaction) as progress_satisfaction,
+    -- Skin type specific visual results
+    COUNT(CASE WHEN pr.skin_type_at_review = 'acne' AND pr.has_photos THEN 1 END) as acne_visual_reviews,
+    COUNT(CASE WHEN pr.skin_type_at_review = 'dry' AND pr.has_photos THEN 1 END) as dry_skin_visual_reviews,
+    COUNT(CASE WHEN pr.skin_type_at_review = 'oily' AND pr.has_photos THEN 1 END) as oily_skin_visual_reviews,
     
-    -- Q&A Activity
-    COUNT(DISTINCT pq.id) as questions_asked,
-    COUNT(DISTINCT pa.id) as answers_provided,
-    
-    -- 🆕 Acne-Specific Insights (if applicable)
-    CASE WHEN 'acne' = ANY(p.skin_concerns) OR p.skin_type = 'acne' THEN
-        jsonb_build_object(
-            'acne_reviews', COUNT(CASE WHEN pr.skin_type_at_review = 'acne' THEN 1 END),
-            'acne_avg_rating', AVG(CASE WHEN pr.skin_type_at_review = 'acne' THEN pr.rating END),
-            'acne_results_rate', AVG(CASE WHEN pr.skin_type_at_review = 'acne' AND pr.visible_results THEN 1 ELSE 0 END),
-            'acne_improvement_rate', AVG(CASE WHEN sp.acne_reduced THEN 1 ELSE 0 END)
-        )
-    END as acne_insights,
-    
-    -- Last updated
-    MAX(pr.created_at) as last_feedback_date
+    -- Visual content recency
+    MAX(rm.created_at) as last_visual_content_date,
+    COUNT(CASE WHEN rm.created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as recent_visual_content
     
 FROM products p
+LEFT JOIN product_media pm ON p.id = pm.product_id
 LEFT JOIN product_reviews pr ON p.id = pr.product_id AND pr.status = 'approved'
-LEFT JOIN skincare_progress sp ON p.id = sp.product_id
-LEFT JOIN product_questions pq ON p.id = pq.product_id
-LEFT JOIN product_answers pa ON pq.id = pa.question_id
+LEFT JOIN review_media rm ON pr.id = rm.review_id
+LEFT JOIN skincare_progress sp ON p.id = sp.product_id AND sp.has_photos = true
 WHERE p.status = 'active'
-GROUP BY p.id, p.name_en, p.category, p.skin_type, p.price;
+GROUP BY p.id, p.name_en, p.category, p.skin_type
+ORDER BY total_review_media DESC, official_media_count DESC;
+
+-- 🆕 Moderation Queue Summary with File Analysis
+CREATE VIEW moderation_queue_summary AS
+SELECT 
+    mq.content_type,
+    mq.status,
+    COUNT(*) as queue_count,
+    COUNT(CASE WHEN mq.contains_files THEN 1 END) as items_with_files,
+    COUNT(CASE WHEN mq.auto_flagged THEN 1 END) as auto_flagged_count,
+    COUNT(CASE WHEN mq.user_reported THEN 1 END) as user_reported_count,
+    
+    -- Priority distribution
+    COUNT(CASE WHEN mq.priority_level = 1 THEN 1 END) as critical_priority,
+    COUNT(CASE WHEN mq.priority_level = 2 THEN 1 END) as high_priority,
+    COUNT(CASE WHEN mq.priority_level = 3 THEN 1 END) as normal_priority,
+    COUNT(CASE WHEN mq.priority_level = 4 THEN 1 END) as low_priority,
+    
+    -- AI moderation insights
+    AVG(mq.spam_probability) as avg_spam_score,
+    AVG(mq.toxicity_score) as avg_toxicity_score,
+    AVG(mq.nsfw_score) as avg_nsfw_score,
+    COUNT(CASE WHEN mq.medical_claims_detected THEN 1 END) as medical_claims_count,
+    COUNT(CASE WHEN mq.inappropriate_content_detected THEN 1 END) as inappropriate_content_count,
+    
+    -- Processing time analysis
+    AVG(EXTRACT(EPOCH FROM (mq.reviewed_at - mq.created_at))) as avg_review_time_seconds,
+    COUNT(CASE WHEN mq.escalated THEN 1 END) as escalated_count,
+    
+    -- Recent activity
+    COUNT(CASE WHEN mq.created_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as items_last_24h,
+    COUNT(CASE WHEN mq.created_at >= NOW() - INTERVAL '7 days' THEN 1 END) as items_last_7_days,
+    
+    -- Oldest pending item
+    MIN(CASE WHEN mq.status = 'pending' THEN mq.created_at END) as oldest_pending_date
+    
+FROM moderation_queue mq
+GROUP BY mq.content_type, mq.status
+ORDER BY mq.content_type, 
+         CASE mq.status 
+             WHEN 'pending' THEN 1 
+             WHEN 'needs_review' THEN 2 
+             WHEN 'approved' THEN 3 
+             WHEN 'rejected' THEN 4 
+         END;
+
+-- =============================================
+-- UTILITY FUNCTIONS AND MAINTENANCE
+-- =============================================
+
+-- 🆕 Function to get user storage quota and usage
+CREATE OR REPLACE FUNCTION get_user_storage_info(user_id_param INTEGER)
+RETURNS TABLE(
+    user_id INTEGER,
+    total_files INTEGER,
+    total_storage_bytes BIGINT,
+    total_storage_mb NUMERIC,
+    profile_files INTEGER,
+    review_files INTEGER,
+    progress_files INTEGER,
+    qa_files INTEGER,
+    quota_mb NUMERIC,
+    quota_percentage NUMERIC,
+    storage_warning BOOLEAN
+) AS $
+BEGIN
+    RETURN QUERY
+    SELECT 
+        u.id as user_id,
+        u.files_uploaded as total_files,
+        u.storage_used as total_storage_bytes,
+        ROUND(u.storage_used::numeric / 1024 / 1024, 2) as total_storage_mb,
+        
+        COUNT(CASE WHEN uf.upload_context = 'profile' THEN 1 END)::INTEGER as profile_files,
+        COUNT(CASE WHEN uf.upload_context = 'review' THEN 1 END)::INTEGER as review_files,
+        COUNT(CASE WHEN uf.upload_context = 'progress' THEN 1 END)::INTEGER as progress_files,
+        COUNT(CASE WHEN uf.upload_context = 'qa' THEN 1 END)::INTEGER as qa_files,
+        
+        -- Calculate quota based on user role (example quotas)
+        CASE 
+            WHEN u.role = 'expert' THEN 1000.0  -- 1GB for experts
+            WHEN u.role = 'customer' AND u.community_score > 100 THEN 500.0  -- 500MB for active users
+            ELSE 200.0  -- 200MB for regular users
+        END as quota_mb,
+        
+        ROUND(
+            (u.storage_used::numeric / 1024 / 1024) / 
+            CASE 
+                WHEN u.role = 'expert' THEN 1000.0
+                WHEN u.role = 'customer' AND u.community_score > 100 THEN 500.0
+                ELSE 200.0
+            END * 100, 2
+        ) as quota_percentage,
+        
+        -- Warning if over 80% of quota
+        (u.storage_used::numeric / 1024 / 1024) / 
+        CASE 
+            WHEN u.role = 'expert' THEN 1000.0
+            WHEN u.role = 'customer' AND u.community_score > 100 THEN 500.0
+            ELSE 200.0
+        END > 0.8 as storage_warning
+        
+    FROM users u
+    LEFT JOIN uploaded_files uf ON u.id = uf.uploaded_by AND uf.deleted_at IS NULL
+    WHERE u.id = user_id_param
+    GROUP BY u.id, u.files_uploaded, u.storage_used, u.role, u.community_score;
+END;
+$ LANGUAGE plpgsql;
+
+-- 🆕 Function to cleanup and optimize file storage
+CREATE OR REPLACE FUNCTION cleanup_file_storage()
+RETURNS TABLE(
+    action VARCHAR,
+    count INTEGER,
+    storage_freed_mb NUMERIC
+) AS $
+DECLARE
+    expired_files_freed BIGINT := 0;
+    orphaned_files_freed BIGINT := 0;
+    duplicate_files_freed BIGINT := 0;
+BEGIN
+    -- Clean up expired temporary files
+    WITH expired_cleanup AS (
+        UPDATE uploaded_files 
+        SET status = 'deleted', deleted_at = NOW()
+        WHERE is_temporary = true 
+          AND expires_at < NOW() 
+          AND status != 'deleted'
+        RETURNING file_size
+    )
+    SELECT COALESCE(SUM(file_size), 0) INTO expired_files_freed FROM expired_cleanup;
+    
+    -- Find and mark orphaned files (files not referenced by any content)
+    WITH orphaned_cleanup AS (
+        UPDATE uploaded_files 
+        SET status = 'deleted', deleted_at = NOW()
+        WHERE status = 'active'
+          AND NOT EXISTS (
+              SELECT 1 FROM product_media pm WHERE pm.file_id = uploaded_files.id
+              UNION ALL
+              SELECT 1 FROM review_media rm WHERE rm.file_id = uploaded_files.id
+              UNION ALL  
+              SELECT 1 FROM progress_media pgm WHERE pgm.file_id = uploaded_files.id
+              UNION ALL
+              SELECT 1 FROM question_media qm WHERE qm.file_id = uploaded_files.id
+              UNION ALL
+              SELECT 1 FROM answer_media am WHERE am.file_id = uploaded_files.id
+              UNION ALL
+              SELECT 1 FROM users u WHERE u.profile_picture_file_id = uploaded_files.id OR u.profile_banner_file_id = uploaded_files.id
+              UNION ALL
+              SELECT 1 FROM categories c WHERE c.image_file_id = uploaded_files.id OR c.banner_file_id = uploaded_files.id
+              UNION ALL
+              SELECT 1 FROM products p WHERE p.main_image_file_id = uploaded_files.id
+          )
+          AND created_at < NOW() - INTERVAL '7 days'  -- Only cleanup files older than 7 days
+        RETURNING file_size
+    )
+    SELECT COALESCE(SUM(file_size), 0) INTO orphaned_files_freed FROM orphaned_cleanup;
+    
+    -- Return cleanup summary
+    RETURN QUERY
+    SELECT 'expired_files'::VARCHAR, 
+           (SELECT COUNT(*) FROM uploaded_files WHERE status = 'deleted' AND deleted_at >= NOW() - INTERVAL '1 minute')::INTEGER,
+           ROUND(expired_files_freed::numeric / 1024 / 1024, 2)
+    UNION ALL
+    SELECT 'orphaned_files'::VARCHAR, 
+           (SELECT COUNT(*) FROM uploaded_files WHERE status = 'deleted' AND deleted_at >= NOW() - INTERVAL '1 minute')::INTEGER - 
+           (SELECT COUNT(*) FROM uploaded_files WHERE status = 'deleted' AND deleted_at >= NOW() - INTERVAL '1 minute' AND is_temporary = true)::INTEGER,
+           ROUND(orphaned_files_freed::numeric / 1024 / 1024, 2);
+END;
+$ LANGUAGE plpgsql;
+
+-- 🆕 Function to generate file analytics report
+CREATE OR REPLACE FUNCTION generate_file_analytics_report()
+RETURNS TABLE(
+    metric VARCHAR,
+    value NUMERIC,
+    unit VARCHAR,
+    category VARCHAR
+) AS $
+BEGIN
+    RETURN QUERY
+    -- Storage metrics
+    SELECT 'total_files'::VARCHAR, COUNT(*)::NUMERIC, 'files'::VARCHAR, 'storage'::VARCHAR
+    FROM uploaded_files WHERE deleted_at IS NULL
+    UNION ALL
+    SELECT 'total_storage_gb'::VARCHAR, ROUND(SUM(file_size)::NUMERIC / 1024 / 1024 / 1024, 2), 'GB'::VARCHAR, 'storage'::VARCHAR
+    FROM uploaded_files WHERE deleted_at IS NULL
+    UNION ALL
+    SELECT 'active_users_with_files'::VARCHAR, COUNT(DISTINCT uploaded_by)::NUMERIC, 'users'::VARCHAR, 'engagement'::VARCHAR
+    FROM uploaded_files WHERE deleted_at IS NULL AND uploaded_by IS NOT NULL
+    UNION ALL
+    -- File type distribution
+    SELECT 'image_files'::VARCHAR, COUNT(*)::NUMERIC, 'files'::VARCHAR, 'content_type'::VARCHAR
+    FROM uploaded_files WHERE media_type = 'image' AND deleted_at IS NULL
+    UNION ALL
+    SELECT 'video_files'::VARCHAR, COUNT(*)::NUMERIC, 'files'::VARCHAR, 'content_type'::VARCHAR
+    FROM uploaded_files WHERE media_type = 'video' AND deleted_at IS NULL
+    UNION ALL
+    -- Upload context distribution
+    SELECT ('files_' || upload_context)::VARCHAR, COUNT(*)::NUMERIC, 'files'::VARCHAR, 'context'::VARCHAR
+    FROM uploaded_files WHERE deleted_at IS NULL
+    GROUP BY upload_context
+    UNION ALL
+    -- Quality metrics
+    SELECT 'avg_file_size_mb'::VARCHAR, ROUND(AVG(file_size)::NUMERIC / 1024 / 1024, 2), 'MB'::VARCHAR, 'quality'::VARCHAR
+    FROM uploaded_files WHERE deleted_at IS NULL
+    UNION ALL
+    SELECT 'files_with_thumbnails'::VARCHAR, COUNT(*)::NUMERIC, 'files'::VARCHAR, 'processing'::VARCHAR
+    FROM uploaded_files WHERE image_thumbnails IS NOT NULL AND deleted_at IS NULL
+    UNION ALL
+    -- Recent activity
+    SELECT 'uploads_last_7_days'::VARCHAR, COUNT(*)::NUMERIC, 'files'::VARCHAR, 'activity'::VARCHAR
+    FROM uploaded_files WHERE created_at >= NOW() - INTERVAL '7 days' AND deleted_at IS NULL
+    UNION ALL
+    SELECT 'uploads_last_30_days'::VARCHAR, COUNT(*)::NUMERIC, 'files'::VARCHAR, 'activity'::VARCHAR
+    FROM uploaded_files WHERE created_at >= NOW() - INTERVAL '30 days' AND deleted_at IS NULL;
+END;
+$ LANGUAGE plpgsql;
+
+-- =============================================
+-- FINAL PERFORMANCE OPTIMIZATIONS
+-- =============================================
+
+-- 🆕 Partial indexes for better performance on large datasets
+CREATE INDEX CONCURRENTLY idx_uploaded_files_active_by_context 
+ON uploaded_files(upload_context, created_at DESC) 
+WHERE status = 'active' AND deleted_at IS NULL;
+
+CREATE INDEX CONCURRENTLY idx_uploaded_files_user_active 
+ON uploaded_files(uploaded_by, upload_context, created_at DESC) 
+WHERE status = 'active' AND deleted_at IS NULL;
+
+CREATE INDEX CONCURRENTLY idx_review_media_timeline_analysis 
+ON review_media(photo_type, days_of_usage, created_at) 
+WHERE photo_type IN ('before', 'after') AND days_of_usage IS NOT NULL;
+
+CREATE INDEX CONCURRENTLY idx_progress_media_comparison 
+ON progress_media(progress_id, photo_type, sort_order) 
+WHERE photo_type = 'progress';
+
+-- 🆕 Composite indexes for common query patterns
+CREATE INDEX CONCURRENTLY idx_product_reviews_media_rating 
+ON product_reviews(product_id, has_photos, rating DESC, created_at DESC) 
+WHERE status = 'approved';
+
+CREATE INDEX CONCURRENTLY idx_users_storage_engagement 
+ON users(storage_used DESC, community_score DESC, created_at) 
+WHERE storage_used > 0;
+
 ```
 
 ## 🍃 Enhanced MongoDB Collections Schema (🎯 ML + Advanced Feedback)
