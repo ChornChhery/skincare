@@ -3462,3 +3462,241 @@ This enhanced backend system provides:
 **✅ Developer-Friendly** - Well-documented APIs, comprehensive testing, clean architecture
 
 Your skincare e-commerce platform is now equipped with one of the most comprehensive feedback and intelligence systems possible, combining the reliability of PostgreSQL, the flexibility of MongoDB, and the speed of Redis with advanced ML capabilities and real-time processing! 🚀
+
+
+
+
+
+
+
+
+
+======================================================================================
+🚀 Step-by-Step Backend Startup Guide (Windows-Friendly)
+
+✅ Optimized for PowerShell users on Windows
+🐧 If you're using Git Bash or WSL, Bash commands also included
+
+✅ Prerequisites
+1. Install Required Tools
+PostgreSQL
+
+Download & install from:
+🔗 https://www.postgresql.org/download/windows/
+
+During setup:
+
+Create a superuser (postgres)
+
+Remember your password
+
+Install psql and pgAdmin
+
+Go (v1.21+)
+
+Download from:
+🔗 https://go.dev/dl/
+
+After install, verify:
+
+go version
+
+Git (for Git Bash)
+
+Download from:
+🔗 https://git-scm.com/downloads
+
+After install, verify:
+
+git --version
+
+✅ Step-by-Step Project Setup
+🔹 Step 1: Create Project Structure
+
+Use this in PowerShell (adjust folder names as needed):
+
+cd E:\Your\Path\To\Projects\
+mkdir januth-skincare-backend
+cd januth-skincare-backend
+
+$folders = @(
+  "services/api-server/cmd/server",
+  "services/api-server/internal/api/handlers",
+  "services/api-server/internal/api/middleware",
+  "services/api-server/internal/api/routes",
+  "services/api-server/internal/services",
+  "services/api-server/internal/repository/interfaces",
+  "services/api-server/internal/repository/postgres",
+  "services/api-server/internal/repository/redis",
+  "services/api-server/internal/repository/mongodb",
+  "services/api-server/internal/models",
+  "services/api-server/internal/config",
+  "services/api-server/internal/utils",
+  "services/api-server/migrations",
+  "services/api-server/uploads/profiles",
+  "services/api-server/uploads/products",
+  "services/api-server/uploads/reviews",
+  "services/api-server/uploads/progress",
+  "services/api-server/uploads/temp",
+  "database/postgresql",
+  "database/mongodb",
+  "database/redis",
+  "scripts",
+  "docs"
+)
+
+foreach ($folder in $folders) {
+    New-Item -ItemType Directory -Path $folder -Force
+}
+
+Write-Host "✅ Directory structure created"
+
+🔹 Step 2: Initialize Go Project
+cd services/api-server
+go mod init januth-skincare-api
+
+🔹 Step 3: Create go.mod File with Dependencies
+@"
+module januth-skincare-api
+
+go 1.21
+
+require (
+    github.com/gin-gonic/gin v1.9.1
+    github.com/lib/pq v1.10.9
+    github.com/go-redis/redis/v8 v8.11.5
+    go.mongodb.org/mongo-driver v1.12.1
+    github.com/golang-jwt/jwt/v5 v5.0.0
+    github.com/joho/godotenv v1.4.0
+    golang.org/x/crypto v0.14.0
+    github.com/google/uuid v1.3.1
+    github.com/gin-contrib/cors v1.4.0
+    github.com/swaggo/gin-swagger v1.6.0
+    github.com/swaggo/swag v1.16.2
+    github.com/golang-migrate/migrate/v4 v4.16.2
+    github.com/go-playground/validator/v10 v10.15.5
+    github.com/disintegration/imaging v1.6.2
+    gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
+)
+"@ | Set-Content -Encoding UTF8 go.mod
+
+
+Then install dependencies:
+
+go mod tidy
+
+🔹 Step 4: Create Essential Files
+# Create .env file
+New-Item .env -ItemType File
+
+# Create starter files
+New-Item cmd/server/main.go -ItemType File
+New-Item internal/config/config.go -ItemType File
+New-Item migrations/001_create_enums_and_core_tables.sql -ItemType File
+
+
+✏️ Open each file in your editor (e.g., VS Code) and paste appropriate content from your source/artifacts.
+
+🔹 Step 5: PostgreSQL Setup
+
+Open pgAdmin or psql and connect as superuser (postgres)
+
+Run:
+
+CREATE DATABASE skincare_ecommerce;
+CREATE USER your_user WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE skincare_ecommerce TO your_user;
+
+🔹 Step 6: Run SQL Migration
+
+Run from terminal or pgAdmin:
+
+psql -U your_user -d skincare_ecommerce -f migrations/001_create_enums_and_core_tables.sql
+
+
+Or open .sql file in pgAdmin and run manually.
+
+🔹 Step 7: Start the Server
+go run cmd/server/main.go
+
+
+Expected output:
+
+✅ Connected to PostgreSQL
+🚀 Server starting on port 8080
+📂 Upload directory: ./uploads
+🌐 Frontend URL: http://localhost:3000
+
+🔹 Step 8: Test Health Check
+curl http://localhost:8080/health
+
+
+Expected:
+
+{
+  "status": "healthy",
+  "timestamp": 1234567890,
+  "service": "januth-skincare-api",
+  "version": "1.0.0"
+}
+
+✅ Environment Variables (.env)
+# PostgreSQL
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=skincare_ecommerce
+POSTGRES_USER=your_user
+POSTGRES_PASSWORD=your_password
+
+# Server
+PORT=8080
+FRONTEND_URL=http://localhost:3000
+
+# JWT
+JWT_SECRET=super-secret-long-key-123456
+
+# File Uploads
+UPLOAD_BASE_PATH=./uploads
+UPLOAD_MAX_FILE_SIZE=20971520
+
+✅ Common Windows-Specific Tips
+Issue	Fix
+cat, touch, chmod errors	Use New-Item or VS Code
+.sh scripts not working	Run in Git Bash or WSL
+psql not recognized	Add PostgreSQL bin/ folder to PATH
+Permissions on uploads	Run terminal as Admin, or use icacls to set folder permissions
+✅ Recommended Tools for Windows
+
+Terminal: PowerShell + Git Bash / WSL
+
+DB GUI: pgAdmin or DBeaver
+
+Editor: VS Code + Go extension
+
+Testing: Postman or curl
+
+Monitoring: Use .env values to switch between dev/prod configs
+
+🚀 What’s Next?
+
+After confirming backend is running:
+
+Add more tables (products, orders, reviews)
+
+Add JWT auth + middleware
+
+Implement CRUD routes
+
+Set up file uploads
+
+Add Redis/Mongo integrations
+
+Connect to your frontend (Next.js or other)
+
+Let me know if you’d like:
+
+A .ps1 startup script
+
+Full Go source code templates for main.go, config.go, etc.
+
+A version for WSL or Bash shell instead of PowerShell
