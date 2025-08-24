@@ -141,6 +141,29 @@ lib/
 └── mockApi.ts               # Development/testing API
 ```
 
+### Upload File
+```
+components/
+├── FileUpload/
+│   ├── ProfilePictureUpload.tsx
+│   ├── ReviewPhotoUpload.tsx
+│   ├── ProgressPhotoUpload.tsx
+│   └── FileUploadArea.tsx
+├── Feedback/
+│   ├── EnhancedReviewForm.tsx
+│   ├── ProgressTracker.tsx
+│   ├── BeforeAfterComparison.tsx
+│   └── QuestionAnswerSystem.tsx
+├── Analytics/
+│   ├── ProgressChart.tsx
+│   ├── ReviewPhotoGallery.tsx
+│   └── UserEngagementStats.tsx
+└── Moderation/
+    ├── ContentModerationQueue.tsx
+    ├── ReviewApprovalSystem.tsx
+    └── FileProcessingStatus.tsx
+```
+
 ## 🌐 Route Structure
 
 ### Customer Routes
